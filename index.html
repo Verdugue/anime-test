@@ -14,10 +14,7 @@
                 <h1>🎌 AnimeHub</h1>
             </div>
             <div class="nav-menu">
-                <div class="search-container">
-                    <input type="text" id="searchInput" placeholder="Rechercher un anime..." class="search-input">
-                    <button id="searchBtn" class="search-btn">🔍</button>
-                </div>
+                
                 <a href="quick-rate.html" class="nav-btn" style="text-decoration: none;">
                     ⚡ Notation Rapide
                 </a>
@@ -39,6 +36,52 @@
 
     <!-- Main Content -->
     <main class="container">
+        <!-- Filtres -->
+        <div class="filters-container">
+            <div class="filters-row">
+                <!-- Type Filter Dropdown -->
+                <div class="filter-dropdown">
+                    <button class="filter-dropdown-btn" id="typeDropdownBtn">
+                        <span class="dropdown-icon">📺</span>
+                        <span class="dropdown-text">Type: <span id="selectedType">Tous</span></span>
+                        <span class="dropdown-arrow">▼</span>
+                    </button>
+                    <div class="filter-dropdown-menu" id="typeDropdownMenu">
+                        <div class="dropdown-option active" data-type="">✓ Tous</div>
+                        <div class="dropdown-option" data-type="tv">📺 Anime TV</div>
+                        <div class="dropdown-option" data-type="movie">🎬 Film</div>
+                        <div class="dropdown-option" data-type="ova">📀 OVA</div>
+                        <div class="dropdown-option" data-type="special">⭐ Special</div>
+                    </div>
+                </div>
+                
+                <!-- Genre Filter Dropdown -->
+                <div class="filter-dropdown">
+                    <button class="filter-dropdown-btn" id="genreDropdownBtn">
+                        <span class="dropdown-icon">🎭</span>
+                        <span class="dropdown-text">Genres: <span id="selectedGenres">Tous</span></span>
+                        <span class="dropdown-arrow">▼</span>
+                    </button>
+                    <div class="filter-dropdown-menu scrollable" id="genreDropdownMenu">
+                        <div class="dropdown-search">
+                            <input type="text" placeholder="🔍 Rechercher un genre..." id="genreSearch">
+                        </div>
+                        <div id="genreOptions">
+                            <div class="spinner-small"></div>
+                            <p style="color: var(--text-secondary); font-size: 0.9rem; padding: 1rem;">Chargement...</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="search-container">
+                    <input type="text" id="searchInput" placeholder="🔍 Rechercher un anime..." class="search-input">
+                </div>
+                <!-- Reset Button -->
+                <button id="resetFiltersBtn" class="btn-reset-filters">
+                    🔄 
+                </button>
+            </div>
+        </div>
+        
         <!-- Loading Spinner -->
         <div id="loading" class="loading">
             <div class="spinner"></div>
@@ -142,9 +185,9 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     
     <!-- Configuration et Scripts -->
-    <script src="firebase-config.js"></script>
-    <script src="auth-firebase.js"></script>
-    <script src="star-rating.js"></script>
-    <script src="app.js"></script>
+    <script src="firebase-config.js?v=35"></script>
+    <script src="auth-firebase.js?v=35"></script>
+    <script src="star-rating.js?v=35"></script>
+    <script src="app.js?v=35"></script>
 </body>
 </html>

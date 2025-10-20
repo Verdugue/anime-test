@@ -7,27 +7,41 @@ const emptyFavorites = document.getElementById('emptyFavorites');
 const userGreeting = document.getElementById('userGreeting');
 const editFavoriteModal = document.getElementById('editFavoriteModal');
 
-// Initialiser la page
-function initFavoritesPage() {
+// Initialiser la page - VERSION SIMPLIFIÉE ET FIABLE
+async function initFavoritesPage() {
+    console.log('🚀 initFavoritesPage() appelée');
     updateAuthButton();
+    
+    // Afficher un loading
+    favoritesContainer.innerHTML = '<div class="loading" style="grid-column: 1/-1;"><div class="spinner"></div><p>Chargement de vos favoris...</p></div>';
     
     // Attendre que Firebase Auth soit prêt
     if (!authManager.auth) {
-        // Si Firebase n'est pas encore chargé, attendre un peu
-        setTimeout(initFavoritesPage, 500);
+        setTimeout(initFavoritesPage, 100);
         return;
     }
     
-    // Écouter les changements d'état d'authentification
-    authManager.auth.onAuthStateChanged((user) => {
-        if (!user) {
-            showLoginRequired();
-            return;
-        }
+    // Attendre jusqu'à 5 secondes que l'utilisateur soit chargé
+    let attempts = 0;
+    const maxAttempts = 50; // 5 secondes (50 x 100ms)
+    
+    const checkUser = async () => {
+        attempts++;
+        console.log(`Tentative ${attempts}/${maxAttempts}, isLoggedIn:`, authManager.isLoggedIn());
         
-        updateUserGreeting();
-        displayFavorites();
-    });
+        if (authManager.isLoggedIn()) {
+            console.log('✅ Utilisateur connecté, chargement des favoris');
+            updateUserGreeting();
+            await displayFavorites();
+        } else if (attempts >= maxAttempts) {
+            console.log('❌ Timeout, pas d\'utilisateur');
+            showLoginRequired();
+        } else {
+            setTimeout(checkUser, 100);
+        }
+    };
+    
+    checkUser();
 }
 
 // Afficher le message de connexion requise
@@ -47,15 +61,19 @@ function updateUserGreeting() {
 
 // Afficher les favoris
 async function displayFavorites() {
+    console.log('🔍 displayFavorites() appelée');
     const favorites = await authManager.getFavorites(true);
+    console.log('📊 Favoris récupérés:', favorites.length, favorites);
     
     if (favorites.length === 0) {
+        console.log('⚠️ Aucun favori trouvé, affichage du message vide');
         favoritesContainer.style.display = 'none';
         emptyFavorites.style.display = 'block';
         loginRequired.style.display = 'none';
         return;
     }
     
+    console.log('✅ Affichage de', favorites.length, 'favoris');
     favoritesContainer.style.display = 'grid';
     emptyFavorites.style.display = 'none';
     loginRequired.style.display = 'none';
@@ -130,24 +148,18 @@ function createFavoriteCard(favorite) {
     `;
 }
 
-// Générer l'affichage des étoiles
+// Générer l'affichage des étoiles (sans demi-étoiles)
 function generateStarDisplay(rating) {
     let stars = '';
     const fullStars = Math.floor(rating);
-    const hasHalfStar = rating % 1 !== 0;
     
     // Étoiles pleines
     for (let i = 0; i < fullStars; i++) {
         stars += '<span class="star">★</span>';
     }
     
-    // Demi-étoile
-    if (hasHalfStar) {
-        stars += '<span class="star">⯨</span>';
-    }
-    
     // Étoiles vides
-    const emptyStars = 5 - Math.ceil(rating);
+    const emptyStars = 5 - fullStars;
     for (let i = 0; i < emptyStars; i++) {
         stars += '<span class="star empty">☆</span>';
     }

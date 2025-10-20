@@ -9,27 +9,27 @@
 </head>
 <body>
     <!-- Navigation -->
-    <nav class="navbar" style="padding: 0.5rem 0;">
+    <nav class="navbar">
         <div class="container">
             <div class="nav-brand">
-                <h1 style="font-size: 1.3rem;">🎌 AnimeHub</h1>
+                <h1>🎌 AnimeHub</h1>
             </div>
             <div class="nav-menu">
-                <a href="index.html" class="nav-btn" style="padding: 0.5rem 1rem; font-size: 0.85rem;">🏠 Accueil</a>
-                <a href="favorites.html" class="nav-btn" style="padding: 0.5rem 1rem; font-size: 0.85rem;">
+                <a href="index.html" class="nav-btn">🏠 Accueil</a>
+                <a href="favorites.html" class="nav-btn">
                     ❤️ Favoris <span id="favCount" class="badge">0</span>
                 </a>
-                <a href="quick-rate.html" class="nav-btn active-page" style="padding: 0.5rem 1rem; font-size: 0.85rem;">⚡ Notation Rapide</a>
-                <button id="authBtn" class="nav-btn auth-btn" style="padding: 0.5rem 1rem; font-size: 0.85rem;">Se connecter</button>
+                <a href="quick-rate.html" class="nav-btn active-page">⚡ Notation Rapide</a>
+                <button id="authBtn" class="nav-btn auth-btn">Se connecter</button>
             </div>
         </div>
     </nav>
 
     <!-- Hero Section -->
-    <section class="hero" style="padding: 2rem 0; margin-bottom: 1rem;">
+    <section class="hero">
         <div class="container">
-            <h2 class="hero-title" style="font-size: 2rem; margin-bottom: 0.5rem;">⚡ Notation Rapide</h2>
-            <p class="hero-subtitle" style="font-size: 1rem;">Découvrez et notez des animes rapidement</p>
+            <h2 class="hero-title">⚡ Notation Rapide</h2>
+            <p class="hero-subtitle">Découvrez et notez des animes rapidement</p>
         </div>
     </section>
 
@@ -79,12 +79,10 @@
             <div class="action-buttons">
                 <button id="skipBtn" class="action-button skip-button">
                     <span class="action-icon">👎</span>
-                    <span class="action-text">Pas vu</span>
                 </button>
                 
                 <button id="likeBtn" class="action-button like-button">
                     <span class="action-icon">❤️</span>
-                    <span class="action-text">J'aime</span>
                 </button>
             </div>
 
@@ -183,10 +181,10 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     
     <!-- Configuration et Scripts -->
-    <script src="firebase-config.js"></script>
-    <script src="auth-firebase.js"></script>
-    <script src="star-rating.js"></script>
-    <script src="quick-rate.js"></script>
+    <script src="firebase-config.js?v=35"></script>
+    <script src="auth-firebase.js?v=35"></script>
+    <script src="star-rating.js?v=35"></script>
+    <script src="quick-rate.js?v=35"></script>
 </body>
 </html>
 

@@ -26,25 +26,33 @@ const skipCountElement = document.getElementById('skipCount');
 const rateCountElement = document.getElementById('rateCount');
 const totalCountElement = document.getElementById('totalCount');
 
-// Initialisation
+// Initialisation - VERSION SIMPLIFIÉE
 async function initQuickRate() {
     updateAuthButton();
     
     // Attendre que Firebase Auth soit prêt
     if (!authManager.auth) {
-        setTimeout(initQuickRate, 500);
+        setTimeout(initQuickRate, 100);
         return;
     }
     
-    // Écouter les changements d'état d'authentification
-    authManager.auth.onAuthStateChanged(async (user) => {
-        if (!user) {
-            showLoginRequired();
-            return;
-        }
+    // Attendre jusqu'à 5 secondes que l'utilisateur soit chargé
+    let attempts = 0;
+    const maxAttempts = 50;
+    
+    const checkUser = async () => {
+        attempts++;
         
-        await loadAnimes();
-    });
+        if (authManager.isLoggedIn()) {
+            await loadAnimes();
+        } else if (attempts >= maxAttempts) {
+            showLoginRequired();
+        } else {
+            setTimeout(checkUser, 100);
+        }
+    };
+    
+    checkUser();
 }
 
 // Afficher le message de connexion requise
@@ -101,13 +109,23 @@ async function loadAnimes() {
 }
 
 // Afficher l'anime actuel
-function displayCurrentAnime() {
+async function displayCurrentAnime() {
     if (currentAnimeIndex >= animesQueue.length) {
         showEndMessage();
         return;
     }
     
     const anime = animesQueue[currentAnimeIndex];
+    
+    // Vérifier si cet anime est déjà en favoris
+    const isFavorite = await authManager.isFavorite(anime.mal_id);
+    if (isFavorite) {
+        console.log(`Anime ${anime.title} déjà en favoris, skip automatique`);
+        currentAnimeIndex++;
+        displayCurrentAnime(); // Passer au suivant récursivement
+        return;
+    }
+    
     const imageUrl = anime.images?.jpg?.large_image_url || anime.images?.jpg?.image_url || '';
     const title = anime.title || anime.title_english || 'Sans titre';
     const score = anime.score || 'N/A';
@@ -151,17 +169,17 @@ function displayCurrentAnime() {
 }
 
 // Passer à l'anime suivant avec animation
-function nextAnime(direction) {
+async function nextAnime(direction) {
     if (isProcessing) return;
     isProcessing = true;
     
     // Animation de sortie
     animeSwipeCard.classList.add(direction === 'left' ? 'swipe-left' : 'swipe-right');
     
-    setTimeout(() => {
+    setTimeout(async () => {
         currentAnimeIndex++;
         updateCounters();
-        displayCurrentAnime();
+        await displayCurrentAnime();
         isProcessing = false;
     }, 500);
 }

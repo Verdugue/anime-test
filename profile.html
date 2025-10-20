@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mon Profil - AnimeHub</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="profile.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <h1>🎌 AnimeHub</h1>
+            </div>
+            <div class="nav-menu">
+                <a href="index.html" class="nav-btn">🏠 Accueil</a>
+                <a href="quick-rate.html" class="nav-btn">⚡ Notation Rapide</a>
+                <a href="favorites.html" class="nav-btn">
+                    ❤️ Favoris <span id="favCount" class="badge">0</span>
+                </a>
+                <button id="authBtn" class="nav-btn auth-btn">Se connecter</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <h2 class="hero-title">👤 Mon Profil</h2>
+            <p class="hero-subtitle" id="userGreeting">Gérez votre compte et vos préférences</p>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <main class="container">
+        <!-- Message de connexion requise -->
+        <div id="loginRequired" class="empty-state" style="display: none;">
+            <h3>🔐 Connexion requise</h3>
+            <p>Vous devez être connecté pour accéder à votre profil</p>
+            <button onclick="openAuthModal()" class="btn-primary" style="max-width: 300px; margin: 2rem auto;">
+                Se connecter
+            </button>
+        </div>
+
+        <!-- Contenu du profil -->
+        <div id="profileContainer" style="display: none;">
+            <!-- Carte de profil -->
+            <div class="profile-card">
+                <div class="profile-header">
+                    <div class="profile-avatar">
+                        <img id="profilePhoto" alt="Photo de profil" style="display: none;">
+                        <span id="userInitials">?</span>
+                    </div>
+                    
+                    <div class="profile-info">
+                        <h2 id="displayUsername">Utilisateur</h2>
+                        <p id="displayEmail">email@example.com</p>
+                        <p class="profile-date">Membre depuis le <span id="memberSince">--</span></p>
+                    </div>
+                    
+                    <div class="profile-actions">
+                        <button onclick="openEditModal()" class="btn-secondary">✏️ Modifier le profil</button>
+                        <button onclick="logoutUser()" class="btn-danger">🚪 Déconnexion</button>
+                    </div>
+                </div>
+                
+                <div class="profile-stats">
+                    <div class="stat-item">
+                        <div class="stat-value" id="statFavorites">0</div>
+                        <div class="stat-label">Favoris</div>
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="statAvgRating">0.0</div>
+                        <div class="stat-label">Note moyenne</div>
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="statComments">0</div>
+                        <div class="stat-label">Commentaires</div>
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="statBestRated">-</div>
+                        <div class="stat-label">Meilleur anime</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Derniers favoris ajoutés -->
+            <div class="recent-favorites">
+                <h3>🕐 Derniers favoris ajoutés</h3>
+                <div id="recentFavoritesList" class="recent-list-lines">
+                    <!-- Sera rempli dynamiquement -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal Login/Register -->
+    <div id="authModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div class="auth-container">
+                <!-- Login Form -->
+                <div id="loginForm" class="auth-form active">
+                    <h2>Connexion</h2>
+                    <form id="loginFormElement">
+                        <div class="form-group">
+                            <label for="loginEmail">Email</label>
+                            <input type="email" id="loginEmail" required placeholder="votre@email.com">
+                        </div>
+                        <div class="form-group">
+                            <label for="loginPassword">Mot de passe</label>
+                            <input type="password" id="loginPassword" required placeholder="••••••••">
+                        </div>
+                        <button type="submit" class="btn-primary">Se connecter</button>
+                    </form>
+                    <p class="auth-switch">
+                        Pas encore de compte ? 
+                        <a href="#" id="showRegister">S'inscrire</a>
+                    </p>
+                </div>
+
+                <!-- Register Form -->
+                <div id="registerForm" class="auth-form">
+                    <h2>Inscription</h2>
+                    <form id="registerFormElement">
+                        <div class="form-group">
+                            <label for="registerUsername">Nom d'utilisateur</label>
+                            <input type="text" id="registerUsername" required placeholder="Votre pseudo">
+                        </div>
+                        <div class="form-group">
+                            <label for="registerEmail">Email</label>
+                            <input type="email" id="registerEmail" required placeholder="votre@email.com">
+                        </div>
+                        <div class="form-group">
+                            <label for="registerPassword">Mot de passe</label>
+                            <input type="password" id="registerPassword" required placeholder="••••••••">
+                        </div>
+                        <div class="form-group">
+                            <label for="registerPasswordConfirm">Confirmer le mot de passe</label>
+                            <input type="password" id="registerPasswordConfirm" required placeholder="••••••••">
+                        </div>
+                        <button type="submit" class="btn-primary">S'inscrire</button>
+                    </form>
+                    <p class="auth-switch">
+                        Déjà un compte ? 
+                        <a href="#" id="showLogin">Se connecter</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Édition Profil -->
+    <div id="editProfileModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 style="text-align: center; background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 2rem;">
+                ✏️ Modifier mon profil
+            </h2>
+            
+            <!-- Aperçu photo de profil -->
+            <div class="edit-profile-photo">
+                <div class="edit-avatar-preview">
+                    <img id="editProfilePhoto" alt="Photo de profil" style="display: none;">
+                    <span id="editUserInitials">?</span>
+                </div>
+                <div class="photo-actions">
+                    <button type="button" onclick="document.getElementById('photoUpload').click()" class="btn-photo">
+                        📷 Changer la photo
+                    </button>
+                    <button type="button" onclick="deleteProfilePhoto()" class="btn-photo-delete" id="deletePhotoBtn" style="display: none;">
+                        🗑️ Supprimer la photo
+                    </button>
+                </div>
+                <input type="file" id="photoUpload" accept="image/*" style="display: none;" onchange="uploadProfilePhoto(event)">
+            </div>
+            
+            <form id="editProfileForm" class="edit-profile-form">
+                <div class="form-group">
+                    <label for="newUsername">Nom d'utilisateur</label>
+                    <input type="text" id="newUsername" required placeholder="Votre nouveau pseudo">
+                </div>
+                <button type="submit" class="btn-primary">💾 Enregistrer</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Crop Photo - Style Discord -->
+    <div id="cropPhotoModal" class="modal">
+        <div class="modal-content crop-modal">
+            <span class="close">&times;</span>
+            <h2 style="text-align: center; background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 1rem;">
+                📷 Modifier l'image
+            </h2>
+            <div class="crop-container">
+                <div class="crop-canvas-wrapper">
+                    <canvas id="cropCanvas"></canvas>
+                </div>
+                <div class="crop-overlay">
+                    <div class="crop-circle"></div>
+                </div>
+            </div>
+            <div class="crop-zoom-control">
+                <span class="crop-zoom-icon">🔍</span>
+                <input type="range" id="zoomSlider" class="crop-zoom-slider" min="100" max="300" value="100">
+                <span class="crop-zoom-icon">🔍</span>
+            </div>
+            <div class="crop-actions">
+                <button onclick="resetCrop()" class="btn-reset">🔄 Réinitialiser</button>
+                <button onclick="cancelCrop()" class="btn-secondary">Annuler</button>
+                <button onclick="confirmCrop()" class="btn-primary">Appliquer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    
+    <!-- Configuration et Scripts -->
+    <script src="firebase-config.js?v=35"></script>
+    <script src="auth-firebase.js?v=35"></script>
+    <script src="profile.js?v=35"></script>
+</body>
+</html>
+

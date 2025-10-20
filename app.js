@@ -7,6 +7,8 @@ let currentPage = 1;
 let totalPages = 1;
 let currentSearch = '';
 let isLoading = false;
+let currentType = '';
+let currentGenres = [];
 
 // Éléments DOM
 const animeGrid = document.getElementById('animeGrid');
@@ -16,7 +18,6 @@ const prevBtn = document.getElementById('prevBtn');
 const nextBtn = document.getElementById('nextBtn');
 const pageNumbers = document.getElementById('pageNumbers');
 const searchInput = document.getElementById('searchInput');
-const searchBtn = document.getElementById('searchBtn');
 const animeDetailModal = document.getElementById('animeDetailModal');
 const addToFavoritesModal = document.getElementById('addToFavoritesModal');
 
@@ -26,7 +27,7 @@ let currentAnimeForFavorite = null;
 // ===== Fonctions API =====
 
 // Récupérer les animes (top animes ou recherche)
-async function fetchAnimes(page = 1, searchQuery = '') {
+async function fetchAnimes(page = 1, searchQuery = '', type = '', genres = []) {
     if (isLoading) return;
     
     isLoading = true;
@@ -35,10 +36,27 @@ async function fetchAnimes(page = 1, searchQuery = '') {
 
     try {
         let url;
+        const params = new URLSearchParams();
+        params.append('page', page);
+        params.append('limit', ITEMS_PER_PAGE);
+        
         if (searchQuery) {
-            url = `${JIKAN_API_BASE}/anime?q=${encodeURIComponent(searchQuery)}&page=${page}&limit=${ITEMS_PER_PAGE}&order_by=popularity`;
+            params.append('q', searchQuery);
+            params.append('order_by', 'popularity');
+        }
+        
+        if (type) {
+            params.append('type', type);
+        }
+        
+        if (genres.length > 0) {
+            params.append('genres', genres.join(','));
+        }
+        
+        if (searchQuery || type || genres.length > 0) {
+            url = `${JIKAN_API_BASE}/anime?${params.toString()}`;
         } else {
-            url = `${JIKAN_API_BASE}/top/anime?page=${page}&limit=${ITEMS_PER_PAGE}`;
+            url = `${JIKAN_API_BASE}/top/anime?${params.toString()}`;
         }
 
         const response = await fetch(url);
@@ -224,9 +242,9 @@ async function displayAnimeDetails(anime) {
                         <iframe 
                             width="100%" 
                             height="315" 
-                            src="${anime.trailer.embed_url}" 
+                            src="${anime.trailer.embed_url}${anime.trailer.embed_url.includes('?') ? '&' : '?'}autoplay=0" 
                             frameborder="0" 
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                            allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
                             allowfullscreen
                             style="border-radius: 15px;">
                         </iframe>
@@ -289,7 +307,7 @@ function updatePagination() {
 
 function goToPage(page) {
     if (page < 1 || page > totalPages || page === currentPage) return;
-    fetchAnimes(page, currentSearch);
+    fetchAnimes(page, currentSearch, currentType, currentGenres);
 }
 
 // ===== Gestion des favoris =====
@@ -413,12 +431,7 @@ function performSearch() {
     const query = searchInput.value.trim();
     currentSearch = query;
     currentPage = 1;
-    
-    if (query) {
-        fetchAnimes(1, query);
-    } else {
-        fetchAnimes(1);
-    }
+    fetchAnimes(currentPage, currentSearch, currentType, currentGenres);
 }
 
 // ===== Utilitaires =====
@@ -457,28 +470,228 @@ nextBtn.addEventListener('click', () => {
     }
 });
 
-// Recherche
-searchBtn.addEventListener('click', performSearch);
-
+// Recherche (appuyer sur Enter pour chercher)
 searchInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
         performSearch();
     }
 });
 
+// ===== Gestion des filtres =====
+
+// Charger les genres depuis l'API
+async function loadGenres() {
+    try {
+        const response = await fetch(`${JIKAN_API_BASE}/genres/anime`);
+        const data = await response.json();
+        
+        const genreOptionsContainer = document.getElementById('genreOptions');
+        genreOptionsContainer.innerHTML = '';
+        
+        // Stocker tous les genres pour la recherche
+        window.allGenres = data.data;
+        
+        // Ajouter "Tous"
+        const allOption = document.createElement('div');
+        allOption.className = 'dropdown-option active';
+        allOption.textContent = '✓ Tous';
+        allOption.dataset.genreId = '';
+        genreOptionsContainer.appendChild(allOption);
+        
+        // Ajouter les genres
+        data.data.forEach(genre => {
+            const option = document.createElement('div');
+            option.className = 'dropdown-option';
+            option.textContent = genre.name;
+            option.dataset.genreId = genre.mal_id;
+            option.dataset.genreName = genre.name;
+            genreOptionsContainer.appendChild(option);
+        });
+        
+        // Setup les événements
+        setupGenreDropdown();
+    } catch (error) {
+        console.error('Erreur lors du chargement des genres:', error);
+        document.getElementById('genreOptions').innerHTML = '<p style="color: var(--text-secondary); padding: 1rem;">Erreur de chargement</p>';
+    }
+}
+
+// Setup dropdown de type
+function setupTypeDropdown() {
+    const typeBtn = document.getElementById('typeDropdownBtn');
+    const typeMenu = document.getElementById('typeDropdownMenu');
+    const typeOptions = typeMenu.querySelectorAll('.dropdown-option');
+    const selectedTypeSpan = document.getElementById('selectedType');
+    
+    // Toggle dropdown
+    typeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        typeMenu.classList.toggle('show');
+        typeBtn.classList.toggle('active');
+        
+        // Fermer l'autre dropdown
+        document.getElementById('genreDropdownMenu').classList.remove('show');
+        document.getElementById('genreDropdownBtn').classList.remove('active');
+    });
+    
+    // Sélection d'un type
+    typeOptions.forEach(option => {
+        option.addEventListener('click', () => {
+            // Retirer active de tous
+            typeOptions.forEach(opt => opt.classList.remove('active'));
+            
+            // Ajouter active à l'option sélectionnée
+            option.classList.add('active');
+            
+            // Mettre à jour le type
+            currentType = option.dataset.type || '';
+            
+            // Mettre à jour le texte
+            const typeText = option.textContent.replace('✓ ', '');
+            selectedTypeSpan.textContent = typeText;
+            
+            // Fermer le dropdown
+            typeMenu.classList.remove('show');
+            typeBtn.classList.remove('active');
+            
+            // Relancer la recherche
+            currentPage = 1;
+            fetchAnimes(currentPage, currentSearch, currentType, currentGenres);
+        });
+    });
+}
+
+// Setup dropdown de genres
+function setupGenreDropdown() {
+    const genreBtn = document.getElementById('genreDropdownBtn');
+    const genreMenu = document.getElementById('genreDropdownMenu');
+    const genreOptions = document.querySelectorAll('#genreOptions .dropdown-option');
+    const selectedGenresSpan = document.getElementById('selectedGenres');
+    const genreSearch = document.getElementById('genreSearch');
+    
+    // Toggle dropdown
+    genreBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        genreMenu.classList.toggle('show');
+        genreBtn.classList.toggle('active');
+        
+        // Fermer l'autre dropdown
+        document.getElementById('typeDropdownMenu').classList.remove('show');
+        document.getElementById('typeDropdownBtn').classList.remove('active');
+    });
+    
+    // Recherche de genres
+    genreSearch.addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase();
+        genreOptions.forEach(option => {
+            const genreName = option.dataset.genreName?.toLowerCase() || '';
+            if (genreName.includes(searchTerm) || option.textContent.toLowerCase().includes(searchTerm)) {
+                option.style.display = 'block';
+            } else {
+                option.style.display = 'none';
+            }
+        });
+    });
+    
+    // Sélection de genres (multi-sélection)
+    genreOptions.forEach(option => {
+        option.addEventListener('click', () => {
+            const genreId = option.dataset.genreId;
+            
+            if (genreId === '') {
+                // "Tous" cliqué - désélectionner tous les genres
+                genreOptions.forEach(opt => opt.classList.remove('active'));
+                option.classList.add('active');
+                currentGenres = [];
+                selectedGenresSpan.textContent = 'Tous';
+            } else {
+                // Désactiver "Tous"
+                genreOptions[0].classList.remove('active');
+                
+                // Toggle le genre
+                option.classList.toggle('active');
+                
+                const index = currentGenres.indexOf(genreId);
+                if (index > -1) {
+                    currentGenres.splice(index, 1);
+                } else {
+                    currentGenres.push(genreId);
+                }
+                
+                // Mettre à jour le texte
+                if (currentGenres.length === 0) {
+                    genreOptions[0].classList.add('active');
+                    selectedGenresSpan.textContent = 'Tous';
+                } else if (currentGenres.length === 1) {
+                    selectedGenresSpan.textContent = option.textContent;
+                } else {
+                    selectedGenresSpan.textContent = `${currentGenres.length} sélectionnés`;
+                }
+            }
+            
+            // Relancer la recherche
+            currentPage = 1;
+            fetchAnimes(currentPage, currentSearch, currentType, currentGenres);
+        });
+    });
+}
+
+// Fermer les dropdowns en cliquant ailleurs
+document.addEventListener('click', () => {
+    document.querySelectorAll('.filter-dropdown-menu').forEach(menu => {
+        menu.classList.remove('show');
+    });
+    document.querySelectorAll('.filter-dropdown-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+});
+
+// Réinitialiser les filtres
+function resetFilters() {
+    currentType = '';
+    currentGenres = [];
+    currentSearch = '';
+    currentPage = 1;
+    
+    // Réinitialiser les dropdowns
+    document.querySelectorAll('.dropdown-option').forEach((opt, index) => {
+        opt.classList.toggle('active', index === 0);
+    });
+    
+    document.getElementById('selectedType').textContent = 'Tous';
+    document.getElementById('selectedGenres').textContent = 'Tous';
+    document.getElementById('genreSearch').value = '';
+    
+    // Réafficher tous les genres
+    document.querySelectorAll('#genreOptions .dropdown-option').forEach(opt => {
+        opt.style.display = 'block';
+    });
+    
+    // Réinitialiser le champ de recherche
+    searchInput.value = '';
+    
+    // Recharger les animes
+    fetchAnimes(currentPage, currentSearch, currentType, currentGenres);
+}
+
+// Bouton réinitialiser
+document.getElementById('resetFiltersBtn').addEventListener('click', resetFilters);
+
 // Effacer la recherche si le champ est vidé
 searchInput.addEventListener('input', (e) => {
     if (e.target.value === '' && currentSearch !== '') {
         currentSearch = '';
-        fetchAnimes(1);
+        fetchAnimes(1, currentSearch, currentType, currentGenres);
     }
 });
 
 // ===== Initialisation =====
 
-// Charger les animes au démarrage
+// Charger les animes et les filtres au démarrage
 document.addEventListener('DOMContentLoaded', () => {
     fetchAnimes(1);
+    loadGenres();
+    setupTypeDropdown();
 });
 
 // Note: Respect de l'API Jikan - limite de 3 requêtes par seconde

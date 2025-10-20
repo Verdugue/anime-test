@@ -3,6 +3,7 @@
 .active-page {
     background: var(--gradient) !important;
     border-color: transparent !important;
+    color: white !important;
 }
 
 .favorites-container {

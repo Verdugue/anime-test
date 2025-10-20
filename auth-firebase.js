@@ -5,6 +5,10 @@ class AuthManager {
         this.currentUser = null;
         this.auth = window.firebaseAuth;
         this.db = window.firebaseDB;
+        this.authInitialized = false;
+        
+        // Charger depuis le cache localStorage immédiatement pour éviter le flash
+        this.loadFromCache();
         
         // Écouter les changements d'authentification
         if (this.auth) {
@@ -16,17 +20,57 @@ class AuthManager {
                 } else {
                     // Utilisateur déconnecté
                     this.currentUser = null;
+                    this.clearCache();
                     console.log('ℹ️ Utilisateur déconnecté');
                 }
                 
+                // Marquer l'auth comme initialisée
+                this.authInitialized = true;
+                
                 // Mettre à jour l'interface
                 if (typeof updateAuthButton === 'function') {
-                    updateAuthButton();
+                    await updateAuthButton();
                 }
                 if (typeof updateFavoritesCount === 'function') {
-                    updateFavoritesCount();
+                    await updateFavoritesCount();
                 }
             });
+        }
+    }
+    
+    // Charger les données depuis localStorage (cache)
+    loadFromCache() {
+        try {
+            const cachedUser = localStorage.getItem('cachedUser');
+            if (cachedUser) {
+                this.currentUser = JSON.parse(cachedUser);
+                console.log('📦 Utilisateur chargé depuis le cache');
+            }
+        } catch (error) {
+            console.error('Erreur lors du chargement du cache:', error);
+        }
+    }
+    
+    // Sauvegarder dans le cache
+    saveToCache() {
+        try {
+            if (this.currentUser) {
+                localStorage.setItem('cachedUser', JSON.stringify(this.currentUser));
+                console.log('💾 Utilisateur sauvegardé dans le cache');
+            }
+        } catch (error) {
+            console.error('Erreur lors de la sauvegarde du cache:', error);
+        }
+    }
+    
+    // Nettoyer le cache
+    clearCache() {
+        try {
+            localStorage.removeItem('cachedUser');
+            localStorage.removeItem('favoritesCount');
+            console.log('🗑️ Cache utilisateur nettoyé');
+        } catch (error) {
+            console.error('Erreur lors du nettoyage du cache:', error);
         }
     }
 
@@ -36,12 +80,14 @@ class AuthManager {
             const userDoc = await this.db.collection('users').doc(firebaseUser.uid).get();
             
             if (userDoc.exists) {
+                const userData = userDoc.data();
                 this.currentUser = {
                     uid: firebaseUser.uid,
                     email: firebaseUser.email,
-                    username: userDoc.data().username || firebaseUser.email.split('@')[0],
+                    username: userData.username || firebaseUser.email.split('@')[0],
+                    profilePhoto: userData.profilePhoto || userData.photoURL || null,
                     favorites: [],
-                    createdAt: userDoc.data().createdAt || new Date().toISOString()
+                    createdAt: userData.createdAt || new Date().toISOString()
                 };
             } else {
                 // Créer le document utilisateur s'il n'existe pas
@@ -56,10 +102,14 @@ class AuthManager {
                     uid: firebaseUser.uid,
                     email: firebaseUser.email,
                     username: username,
+                    profilePhoto: null,
                     favorites: [],
                     createdAt: new Date().toISOString()
                 };
             }
+            
+            // Sauvegarder dans le cache pour le prochain chargement
+            this.saveToCache();
         } catch (error) {
             console.error('Erreur lors du chargement des données utilisateur:', error);
         }
@@ -276,21 +326,29 @@ class AuthManager {
     _favoritesCacheTime = null;
     
     async getFavorites(forceRefresh = false) {
+        console.log('🔍 getFavorites() appelée, forceRefresh:', forceRefresh);
         if (!this.isLoggedIn()) {
+            console.log('❌ Utilisateur non connecté');
             return [];
         }
+
+        console.log('👤 Utilisateur connecté, UID:', this.currentUser.uid);
 
         // Cache de 30 secondes
         const now = Date.now();
         if (!forceRefresh && this._favoritesCache && this._favoritesCacheTime && (now - this._favoritesCacheTime < 30000)) {
+            console.log('📦 Retour du cache:', this._favoritesCache.length, 'favoris');
             return this._favoritesCache;
         }
 
         try {
+            console.log('🔍 Requête Firestore pour userId:', this.currentUser.uid);
+            // Requête sans tri pour éviter l'erreur d'index en construction
             const snapshot = await this.db.collection('favorites')
                 .where('userId', '==', this.currentUser.uid)
-                .orderBy('addedAt', 'desc')
                 .get();
+            
+            console.log('📊 Snapshot reçu, taille:', snapshot.size);
             
             const favorites = [];
             snapshot.forEach(doc => {
@@ -312,6 +370,9 @@ class AuthManager {
                     addedAt: data.addedAt?.toDate().toISOString() || new Date().toISOString()
                 });
             });
+            
+            // Trier manuellement par date (du plus récent au plus ancien)
+            favorites.sort((a, b) => new Date(b.addedAt) - new Date(a.addedAt));
             
             this._favoritesCache = favorites;
             this._favoritesCacheTime = now;
@@ -402,24 +463,16 @@ const showLoginLink = document.getElementById('showLogin');
 const favCountElement = document.getElementById('favCount');
 
 // Initialisation de l'interface
-function initAuthUI() {
-    updateAuthButton();
-    updateFavoritesCount();
+async function initAuthUI() {
+    await updateAuthButton();
+    await updateFavoritesCount();
 
     // Événements des boutons
     if (authBtn) {
         authBtn.addEventListener('click', async () => {
             if (authManager.isLoggedIn()) {
-                if (confirm('Voulez-vous vous déconnecter ?')) {
-                    await authManager.logout();
-                    updateAuthButton();
-                    updateFavoritesCount();
-                    showNotification('Déconnecté avec succès', 'success');
-                    // Rafraîchir l'affichage
-                    if (typeof updateFavoriteButtons === 'function') {
-                        updateFavoriteButtons();
-                    }
-                }
+                // Rediriger vers la page profil
+                window.location.href = 'profile.html';
             } else {
                 openModal(authModal);
             }
@@ -453,7 +506,7 @@ function initAuthUI() {
             try {
                 await authManager.login(email, password);
                 closeModal(authModal);
-                updateAuthButton();
+                await updateAuthButton();
                 await updateFavoritesCount();
                 showNotification(`Bienvenue ${authManager.getCurrentUser().username} !`, 'success');
                 loginFormElement.reset();
@@ -493,7 +546,7 @@ function initAuthUI() {
             try {
                 await authManager.register(username, email, password);
                 closeModal(authModal);
-                updateAuthButton();
+                await updateAuthButton();
                 await updateFavoritesCount();
                 showNotification(`Bienvenue ${username} ! Votre compte a été créé.`, 'success');
                 registerFormElement.reset();
@@ -521,13 +574,48 @@ function initAuthUI() {
 }
 
 // Mettre à jour le bouton d'authentification
-function updateAuthButton() {
-    if (!authBtn) return;
+async function updateAuthButton() {
+    if (!authBtn) {
+        console.log('❌ authBtn introuvable');
+        return;
+    }
     
     if (authManager.isLoggedIn()) {
         const user = authManager.getCurrentUser();
-        authBtn.textContent = `👤 ${user.username}`;
+        console.log('🔄 Mise à jour du bouton auth pour:', user.username);
+        
+        // Afficher immédiatement depuis le cache si disponible
+        const cachedPhoto = user.profilePhoto;
+        
+        if (cachedPhoto) {
+            authBtn.innerHTML = `<img src="${cachedPhoto}" alt="${user.username}" class="nav-profile-photo"> ${user.username}`;
+        } else {
+            const initials = user.username.substring(0, 2).toUpperCase();
+            authBtn.innerHTML = `<span class="nav-profile-initials">${initials}</span> ${user.username}`;
+        }
         authBtn.style.background = 'linear-gradient(135deg, #8B5CF6, #EC4899)';
+        
+        // Vérifier Firestore en arrière-plan pour mettre à jour si nécessaire
+        try {
+            const userDoc = await authManager.db.collection('users').doc(user.uid).get();
+            const userData = userDoc.data();
+            const profilePhoto = userData?.profilePhoto || userData?.photoURL;
+            
+            // Mettre à jour si la photo a changé
+            if (profilePhoto !== cachedPhoto) {
+                user.profilePhoto = profilePhoto;
+                authManager.saveToCache();
+                
+                if (profilePhoto) {
+                    authBtn.innerHTML = `<img src="${profilePhoto}" alt="${user.username}" class="nav-profile-photo"> ${user.username}`;
+                } else {
+                    const initials = user.username.substring(0, 2).toUpperCase();
+                    authBtn.innerHTML = `<span class="nav-profile-initials">${initials}</span> ${user.username}`;
+                }
+            }
+        } catch (error) {
+            console.error('❌ Erreur lors de la récupération de la photo de profil:', error);
+        }
     } else {
         authBtn.textContent = 'Se connecter';
         authBtn.style.background = '';
@@ -538,8 +626,16 @@ function updateAuthButton() {
 async function updateFavoritesCount() {
     if (!favCountElement) return;
     
+    // Charger immédiatement depuis le cache
+    const cachedCount = localStorage.getItem('favoritesCount');
+    if (cachedCount !== null) {
+        favCountElement.textContent = cachedCount;
+    }
+    
+    // Mettre à jour en arrière-plan
     const count = await authManager.getFavoritesCount();
     favCountElement.textContent = count;
+    localStorage.setItem('favoritesCount', count);
 }
 
 // Ouvrir une modale
