@@ -30,12 +30,21 @@ const totalCountElement = document.getElementById('totalCount');
 async function initQuickRate() {
     updateAuthButton();
     
-    if (!authManager.isLoggedIn()) {
-        showLoginRequired();
+    // Attendre que Firebase Auth soit prêt
+    if (!authManager.auth) {
+        setTimeout(initQuickRate, 500);
         return;
     }
     
-    await loadAnimes();
+    // Écouter les changements d'état d'authentification
+    authManager.auth.onAuthStateChanged(async (user) => {
+        if (!user) {
+            showLoginRequired();
+            return;
+        }
+        
+        await loadAnimes();
+    });
 }
 
 // Afficher le message de connexion requise
@@ -63,7 +72,11 @@ async function loadAnimes() {
         animesQueue = data.data.slice(0, ANIMES_PER_SESSION);
         
         // Filtrer les animes déjà en favoris
-        animesQueue = animesQueue.filter(anime => !authManager.isFavorite(anime.mal_id));
+        if (authManager.isLoggedIn()) {
+            const favorites = await authManager.getFavorites();
+            const favoriteIds = favorites.map(fav => fav.mal_id);
+            animesQueue = animesQueue.filter(anime => !favoriteIds.includes(anime.mal_id));
+        }
         
         if (animesQueue.length === 0) {
             showEndMessage();
@@ -234,7 +247,7 @@ function openRatingModal(anime) {
 let selectedRatingQuickValue = 0;
 
 // Confirmer la notation
-function confirmRating() {
+async function confirmRating() {
     if (selectedRatingQuickValue === 0) {
         showNotification('Veuillez sélectionner une note', 'error');
         return;
@@ -243,20 +256,24 @@ function confirmRating() {
     const comment = document.getElementById('commentTextareaQuick').value.trim();
     const anime = animesQueue[currentAnimeIndex];
     
-    // Ajouter aux favoris avec la note et le commentaire
-    authManager.addFavorite(anime, selectedRatingQuickValue, comment);
-    
-    rateCount++;
-    updateFavoritesCount();
-    
-    closeModal(ratingModal);
-    showNotification('Ajouté aux favoris ! ❤️', 'success');
-    
-    // Réinitialiser
-    selectedRatingQuickValue = 0;
-    
-    // Passer à l'anime suivant
-    nextAnime('right');
+    try {
+        // Ajouter aux favoris avec la note et le commentaire
+        await authManager.addFavorite(anime, selectedRatingQuickValue, comment);
+        
+        rateCount++;
+        await updateFavoritesCount();
+        
+        closeModal(ratingModal);
+        showNotification('Ajouté aux favoris ! ❤️', 'success');
+        
+        // Réinitialiser
+        selectedRatingQuickValue = 0;
+        
+        // Passer à l'anime suivant
+        nextAnime('right');
+    } catch (error) {
+        showNotification(error.message, 'error');
+    }
 }
 
 // Fermer la modale de notation

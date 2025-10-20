@@ -11,13 +11,23 @@ const editFavoriteModal = document.getElementById('editFavoriteModal');
 function initFavoritesPage() {
     updateAuthButton();
     
-    if (!authManager.isLoggedIn()) {
-        showLoginRequired();
+    // Attendre que Firebase Auth soit prêt
+    if (!authManager.auth) {
+        // Si Firebase n'est pas encore chargé, attendre un peu
+        setTimeout(initFavoritesPage, 500);
         return;
     }
     
-    updateUserGreeting();
-    displayFavorites();
+    // Écouter les changements d'état d'authentification
+    authManager.auth.onAuthStateChanged((user) => {
+        if (!user) {
+            showLoginRequired();
+            return;
+        }
+        
+        updateUserGreeting();
+        displayFavorites();
+    });
 }
 
 // Afficher le message de connexion requise
@@ -36,8 +46,8 @@ function updateUserGreeting() {
 }
 
 // Afficher les favoris
-function displayFavorites() {
-    const favorites = authManager.getFavorites();
+async function displayFavorites() {
+    const favorites = await authManager.getFavorites(true);
     
     if (favorites.length === 0) {
         favoritesContainer.style.display = 'none';
@@ -148,8 +158,9 @@ function generateStarDisplay(rating) {
 // Modifier un favori
 let starRatingEditInstance = null;
 
-function editFavorite(animeId) {
-    const favorite = authManager.getFavorites().find(f => f.mal_id === animeId);
+async function editFavorite(animeId) {
+    const favorites = await authManager.getFavorites();
+    const favorite = favorites.find(f => f.mal_id === animeId);
     if (!favorite) return;
     
     const currentRating = favorite.userRating || 0;
@@ -195,7 +206,7 @@ function editFavorite(animeId) {
 let selectedRatingValue = 0;
 
 // Sauvegarder les modifications
-function saveEditedFavorite(animeId) {
+async function saveEditedFavorite(animeId) {
     const comment = document.getElementById('commentTextarea').value.trim();
     
     if (selectedRatingValue === 0) {
@@ -203,20 +214,28 @@ function saveEditedFavorite(animeId) {
         return;
     }
     
-    authManager.updateFavorite(animeId, selectedRatingValue, comment);
-    closeModal(editFavoriteModal);
-    displayFavorites();
-    updateFavoritesCount();
-    showNotification('Modifications enregistrées !', 'success');
+    try {
+        await authManager.updateFavorite(animeId, selectedRatingValue, comment);
+        closeModal(editFavoriteModal);
+        await displayFavorites();
+        await updateFavoritesCount();
+        showNotification('Modifications enregistrées !', 'success');
+    } catch (error) {
+        showNotification(error.message, 'error');
+    }
 }
 
 // Retirer un favori
-function removeFavoriteFromPage(animeId) {
+async function removeFavoriteFromPage(animeId) {
     if (confirm('Êtes-vous sûr de vouloir retirer cet anime de vos favoris ?')) {
-        authManager.removeFavorite(animeId);
-        displayFavorites();
-        updateFavoritesCount();
-        showNotification('Retiré des favoris', 'info');
+        try {
+            await authManager.removeFavorite(animeId);
+            await displayFavorites();
+            await updateFavoritesCount();
+            showNotification('Retiré des favoris', 'info');
+        } catch (error) {
+            showNotification(error.message, 'error');
+        }
     }
 }
 

@@ -1,0 +1,19 @@
+mutation CreateUser($username: String!, $email: String!, $createdAt: Timestamp!, $displayName: String!) @auth(level: USER) {
+  user_insert(data: {username: $username, email: $email, createdAt: $createdAt, displayName: $displayName})
+}
+
+query ListAnimes @auth(level: PUBLIC, insecureReason: "This operation is safe to expose to the public") {
+  animes {
+    id
+    title
+    imageUrl
+  }
+}
+
+mutation AddComment($content: String!, $userAnimeReviewId: UUID!) @auth(level: USER) {
+  comment_insert(data: {content: $content, userId_expr: "auth.uid", userAnimeReviewId: $userAnimeReviewId, createdAt_expr: "request.time"})
+}
+
+mutation UpdateUserBio($bio: String!) @auth(level: USER) {
+  user_update(key: {id_expr: "auth.uid"}, data: {bio: $bio})
+}

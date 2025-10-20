@@ -80,7 +80,7 @@ async function fetchAnimeDetails(animeId) {
         }
 
         const data = await response.json();
-        displayAnimeDetails(data.data);
+        await displayAnimeDetails(data.data);
         openModal(animeDetailModal);
         
     } catch (error) {
@@ -121,11 +121,14 @@ function createAnimeCard(anime) {
 }
 
 // Afficher les animes dans la grille
-function displayAnimes(animes) {
+async function displayAnimes(animes) {
     // Filtrer les animes déjà en favoris si l'utilisateur est connecté
     let filteredAnimes = animes;
     if (authManager.isLoggedIn()) {
-        filteredAnimes = animes.filter(anime => !authManager.isFavorite(anime.mal_id));
+        // Récupérer la liste des favoris
+        const favorites = await authManager.getFavorites();
+        const favoriteIds = favorites.map(fav => fav.mal_id);
+        filteredAnimes = animes.filter(anime => !favoriteIds.includes(anime.mal_id));
     }
     
     if (filteredAnimes.length === 0) {
@@ -150,8 +153,8 @@ function displayAnimes(animes) {
 }
 
 // Afficher les détails d'un anime
-function displayAnimeDetails(anime) {
-    const isFav = authManager.isFavorite(anime.mal_id);
+async function displayAnimeDetails(anime) {
+    const isFav = await authManager.isFavorite(anime.mal_id);
     const imageUrl = anime.images?.jpg?.large_image_url || anime.images?.jpg?.image_url || '';
     const title = anime.title || 'Sans titre';
     const titleEnglish = anime.title_english || '';
@@ -291,19 +294,21 @@ function goToPage(page) {
 
 // ===== Gestion des favoris =====
 
-function toggleFavoriteFromDetail(animeId) {
+async function toggleFavoriteFromDetail(animeId) {
     if (!authManager.isLoggedIn()) {
         openModal(document.getElementById('authModal'));
         showNotification('Connectez-vous pour ajouter des favoris', 'info');
         return;
     }
 
-    if (authManager.isFavorite(animeId)) {
+    const isFav = await authManager.isFavorite(animeId);
+    
+    if (isFav) {
         // Retirer des favoris
         if (confirm('Voulez-vous retirer cet anime de vos favoris ?')) {
-            authManager.removeFavorite(animeId);
+            await authManager.removeFavorite(animeId);
             showNotification('Retiré des favoris', 'info');
-            updateFavoritesCount();
+            await updateFavoritesCount();
             updateFavoriteButtons();
             closeModal(animeDetailModal);
         }
@@ -370,7 +375,7 @@ function openAddToFavoritesModal(anime) {
 let selectedRatingForAddValue = 0;
 
 // Confirmer l'ajout aux favoris
-function confirmAddToFavorites() {
+async function confirmAddToFavorites() {
     if (selectedRatingForAddValue === 0) {
         showNotification('Veuillez sélectionner une note', 'error');
         return;
@@ -383,14 +388,18 @@ function confirmAddToFavorites() {
         return;
     }
     
-    authManager.addFavorite(currentAnimeForFavorite, selectedRatingForAddValue, comment);
-    closeModal(addToFavoritesModal);
-    showNotification('Ajouté aux favoris avec succès ! ❤️', 'success');
-    updateFavoritesCount();
-    updateFavoriteButtons();
-    
-    // Réinitialiser
-    selectedRatingForAddValue = 0;
+    try {
+        await authManager.addFavorite(currentAnimeForFavorite, selectedRatingForAddValue, comment);
+        closeModal(addToFavoritesModal);
+        showNotification('Ajouté aux favoris avec succès ! ❤️', 'success');
+        await updateFavoritesCount();
+        updateFavoriteButtons();
+        
+        // Réinitialiser
+        selectedRatingForAddValue = 0;
+    } catch (error) {
+        showNotification(error.message, 'error');
+    }
 }
 
 function updateFavoriteButtons() {
