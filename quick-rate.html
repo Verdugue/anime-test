@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notation Rapide - AnimeHub</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="quick-rate.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar" style="padding: 0.5rem 0;">
+        <div class="container">
+            <div class="nav-brand">
+                <h1 style="font-size: 1.3rem;">🎌 AnimeHub</h1>
+            </div>
+            <div class="nav-menu">
+                <a href="index.html" class="nav-btn" style="padding: 0.5rem 1rem; font-size: 0.85rem;">🏠 Accueil</a>
+                <a href="favorites.html" class="nav-btn" style="padding: 0.5rem 1rem; font-size: 0.85rem;">
+                    ❤️ Favoris <span id="favCount" class="badge">0</span>
+                </a>
+                <a href="quick-rate.html" class="nav-btn active-page" style="padding: 0.5rem 1rem; font-size: 0.85rem;">⚡ Notation Rapide</a>
+                <button id="authBtn" class="nav-btn auth-btn" style="padding: 0.5rem 1rem; font-size: 0.85rem;">Se connecter</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero" style="padding: 2rem 0; margin-bottom: 1rem;">
+        <div class="container">
+            <h2 class="hero-title" style="font-size: 2rem; margin-bottom: 0.5rem;">⚡ Notation Rapide</h2>
+            <p class="hero-subtitle" style="font-size: 1rem;">Découvrez et notez des animes rapidement</p>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <main class="container">
+        <!-- Message de connexion requise -->
+        <div id="loginRequired" class="empty-state" style="display: none;">
+            <h3>🔐 Connexion requise</h3>
+            <p>Vous devez être connecté pour utiliser la notation rapide</p>
+            <button onclick="openAuthModal()" class="btn-primary" style="max-width: 300px; margin: 2rem auto;">
+                Se connecter
+            </button>
+        </div>
+
+        <!-- Loading -->
+        <div id="loadingQuick" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>Chargement des animes...</p>
+        </div>
+
+        <!-- Zone de notation rapide -->
+        <div id="quickRateContainer" class="quick-rate-container">
+            <!-- Compteur -->
+            <div class="rate-counter">
+                <div class="counter-item">
+                    <span class="counter-number" id="skipCount">0</span>
+                    <span class="counter-label">Ignorés</span>
+                </div>
+                <div class="counter-item">
+                    <span class="counter-number" id="rateCount">0</span>
+                    <span class="counter-label">Notés</span>
+                </div>
+                <div class="counter-item">
+                    <span class="counter-number" id="totalCount">0</span>
+                    <span class="counter-label">Total</span>
+                </div>
+            </div>
+
+            <!-- Carte anime principale -->
+            <div class="swipe-card-wrapper">
+                <div id="animeSwipeCard" class="anime-swipe-card">
+                    <!-- Le contenu sera injecté dynamiquement -->
+                </div>
+            </div>
+
+            <!-- Boutons d'action -->
+            <div class="action-buttons">
+                <button id="skipBtn" class="action-button skip-button">
+                    <span class="action-icon">👎</span>
+                    <span class="action-text">Pas vu</span>
+                </button>
+                
+                <button id="likeBtn" class="action-button like-button">
+                    <span class="action-icon">❤️</span>
+                    <span class="action-text">J'aime</span>
+                </button>
+            </div>
+
+            <!-- Instructions -->
+            <div class="instructions">
+                <p>👈 Ignorez les animes que vous n'avez pas vus</p>
+                <p>❤️ Aimez pour noter et commenter</p>
+            </div>
+        </div>
+
+        <!-- Message de fin -->
+        <div id="endMessage" class="empty-state" style="display: none;">
+            <h3>🎉 Bravo !</h3>
+            <p>Vous avez noté tous les animes disponibles pour cette session</p>
+            <div style="display: flex; gap: 1rem; justify-content: center; margin-top: 2rem;">
+                <button onclick="restartQuickRate()" class="btn-primary" style="max-width: 250px;">
+                    🔄 Recommencer
+                </button>
+                <a href="favorites.html" class="btn-primary" style="max-width: 250px; text-decoration: none; text-align: center;">
+                    ❤️ Voir mes favoris
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal Login/Register -->
+    <div id="authModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div class="auth-container">
+                <!-- Login Form -->
+                <div id="loginForm" class="auth-form active">
+                    <h2>Connexion</h2>
+                    <form id="loginFormElement">
+                        <div class="form-group">
+                            <label for="loginEmail">Email</label>
+                            <input type="email" id="loginEmail" required placeholder="votre@email.com">
+                        </div>
+                        <div class="form-group">
+                            <label for="loginPassword">Mot de passe</label>
+                            <input type="password" id="loginPassword" required placeholder="••••••••">
+                        </div>
+                        <button type="submit" class="btn-primary">Se connecter</button>
+                    </form>
+                    <p class="auth-switch">
+                        Pas encore de compte ? 
+                        <a href="#" id="showRegister">S'inscrire</a>
+                    </p>
+                </div>
+
+                <!-- Register Form -->
+                <div id="registerForm" class="auth-form">
+                    <h2>Inscription</h2>
+                    <form id="registerFormElement">
+                        <div class="form-group">
+                            <label for="registerUsername">Nom d'utilisateur</label>
+                            <input type="text" id="registerUsername" required placeholder="Votre pseudo">
+                        </div>
+                        <div class="form-group">
+                            <label for="registerEmail">Email</label>
+                            <input type="email" id="registerEmail" required placeholder="votre@email.com">
+                        </div>
+                        <div class="form-group">
+                            <label for="registerPassword">Mot de passe</label>
+                            <input type="password" id="registerPassword" required placeholder="••••••••">
+                        </div>
+                        <div class="form-group">
+                            <label for="registerPasswordConfirm">Confirmer le mot de passe</label>
+                            <input type="password" id="registerPasswordConfirm" required placeholder="••••••••">
+                        </div>
+                        <button type="submit" class="btn-primary">S'inscrire</button>
+                    </form>
+                    <p class="auth-switch">
+                        Déjà un compte ? 
+                        <a href="#" id="showLogin">Se connecter</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de notation -->
+    <div id="ratingModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 style="text-align: center; background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 2rem;">
+                Notez cet anime
+            </h2>
+            <div id="ratingContent"></div>
+        </div>
+    </div>
+
+    <script src="auth.js"></script>
+    <script src="star-rating.js"></script>
+    <script src="quick-rate.js"></script>
+</body>
+</html>
+

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mes Favoris - AnimeHub</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="favorites.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <h1>🎌 AnimeHub</h1>
+            </div>
+            <div class="nav-menu">
+                <a href="index.html" class="nav-btn">🏠 Accueil</a>
+                <a href="quick-rate.html" class="nav-btn">⚡ Notation Rapide</a>
+                <a href="favorites.html" class="nav-btn active-page">
+                    ❤️ Favoris <span id="favCount" class="badge">0</span>
+                </a>
+                <button id="authBtn" class="nav-btn auth-btn">Se connecter</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <h2 class="hero-title">❤️ Mes Animes Favoris</h2>
+            <p class="hero-subtitle" id="userGreeting">Vos animes préférés en un seul endroit</p>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <main class="container">
+        <!-- Message de connexion requise -->
+        <div id="loginRequired" class="empty-state" style="display: none;">
+            <h3>🔐 Connexion requise</h3>
+            <p>Vous devez être connecté pour voir vos favoris</p>
+            <button onclick="openAuthModal()" class="btn-primary" style="max-width: 300px; margin: 2rem auto;">
+                Se connecter
+            </button>
+        </div>
+
+        <!-- Liste vide -->
+        <div id="emptyFavorites" class="empty-state" style="display: none;">
+            <h3>📺 Aucun favori pour le moment</h3>
+            <p>Explorez des animes et ajoutez-les à vos favoris !</p>
+            <a href="index.html" class="btn-primary" style="max-width: 300px; margin: 2rem auto; display: block; text-decoration: none; text-align: center;">
+                Découvrir des animes
+            </a>
+        </div>
+
+        <!-- Grille des favoris -->
+        <div id="favoritesContainer" class="favorites-container">
+            <!-- Les favoris seront injectés ici -->
+        </div>
+    </main>
+
+    <!-- Modal Login/Register -->
+    <div id="authModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div class="auth-container">
+                <!-- Login Form -->
+                <div id="loginForm" class="auth-form active">
+                    <h2>Connexion</h2>
+                    <form id="loginFormElement">
+                        <div class="form-group">
+                            <label for="loginEmail">Email</label>
+                            <input type="email" id="loginEmail" required placeholder="votre@email.com">
+                        </div>
+                        <div class="form-group">
+                            <label for="loginPassword">Mot de passe</label>
+                            <input type="password" id="loginPassword" required placeholder="••••••••">
+                        </div>
+                        <button type="submit" class="btn-primary">Se connecter</button>
+                    </form>
+                    <p class="auth-switch">
+                        Pas encore de compte ? 
+                        <a href="#" id="showRegister">S'inscrire</a>
+                    </p>
+                </div>
+
+                <!-- Register Form -->
+                <div id="registerForm" class="auth-form">
+                    <h2>Inscription</h2>
+                    <form id="registerFormElement">
+                        <div class="form-group">
+                            <label for="registerUsername">Nom d'utilisateur</label>
+                            <input type="text" id="registerUsername" required placeholder="Votre pseudo">
+                        </div>
+                        <div class="form-group">
+                            <label for="registerEmail">Email</label>
+                            <input type="email" id="registerEmail" required placeholder="votre@email.com">
+                        </div>
+                        <div class="form-group">
+                            <label for="registerPassword">Mot de passe</label>
+                            <input type="password" id="registerPassword" required placeholder="••••••••">
+                        </div>
+                        <div class="form-group">
+                            <label for="registerPasswordConfirm">Confirmer le mot de passe</label>
+                            <input type="password" id="registerPasswordConfirm" required placeholder="••••••••">
+                        </div>
+                        <button type="submit" class="btn-primary">S'inscrire</button>
+                    </form>
+                    <p class="auth-switch">
+                        Déjà un compte ? 
+                        <a href="#" id="showLogin">Se connecter</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Édition Favori -->
+    <div id="editFavoriteModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 style="text-align: center; background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 2rem;">
+                Modifier mon avis
+            </h2>
+            <div id="editFavoriteContent"></div>
+        </div>
+    </div>
+
+    <script src="auth.js"></script>
+    <script src="star-rating.js"></script>
+    <script src="favorites-page.js"></script>
+</body>
+</html>
+
