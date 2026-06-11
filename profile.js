@@ -9,7 +9,7 @@ const editProfileModal = document.getElementById('editProfileModal');
 async function initProfilePage() {
     console.log('🚀 initProfilePage() appelée');
     
-    // Attendre que Firebase Auth soit prêt
+    // Attendre que l'authentification soit prête
     if (!authManager.auth) {
         setTimeout(initProfilePage, 100);
         return;
@@ -202,15 +202,9 @@ document.getElementById('editProfileForm').addEventListener('submit', async (e) 
     }
     
     try {
-        // Mettre à jour dans Firestore
-        const user = authManager.getCurrentUser();
-        await authManager.db.collection('users').doc(user.uid).update({
-            username: newUsername
-        });
-        
-        // Mettre à jour localement
-        authManager.currentUser.username = newUsername;
-        
+        // Mettre à jour dans Supabase (+ cache local)
+        await authManager.updateUsername(newUsername);
+
         // Rafraîchir l'affichage
         await displayProfile();
         
@@ -476,11 +470,9 @@ async function confirmCrop() {
         
         // Convertir en base64
         const croppedImage = outputCanvas.toDataURL('image/jpeg', 0.85);
-        
-        // Mettre à jour dans Firestore
-        await authManager.db.collection('users').doc(user.uid).update({
-            profilePhoto: croppedImage
-        });
+
+        // Mettre à jour dans Supabase
+        await authManager.updateProfilePhoto(croppedImage);
         
         // Afficher la nouvelle photo sur le profil et dans la modal d'édition
         const profilePhoto = document.getElementById('profilePhoto');
@@ -525,10 +517,8 @@ async function deleteProfilePhoto() {
         const user = authManager.getCurrentUser();
         if (!user) return;
         
-        // Supprimer la photo de Firestore
-        await authManager.db.collection('users').doc(user.uid).update({
-            profilePhoto: firebase.firestore.FieldValue.delete()
-        });
+        // Supprimer la photo dans Supabase
+        await authManager.updateProfilePhoto(null);
         
         // Réinitialiser l'affichage - afficher les initiales
         const profilePhoto = document.getElementById('profilePhoto');
@@ -561,14 +551,13 @@ async function deleteProfilePhoto() {
 // Charger la photo de profil
 async function loadProfilePhoto(userId) {
     try {
-        const userDoc = await authManager.db.collection('users').doc(userId).get();
-        const userData = userDoc.data();
-        
-        if (userData && userData.profilePhoto) {
+        const photo = await authManager.getProfilePhoto();
+
+        if (photo) {
             const profilePhoto = document.getElementById('profilePhoto');
             const userInitials = document.getElementById('userInitials');
-            
-            profilePhoto.src = userData.profilePhoto;
+
+            profilePhoto.src = photo;
             profilePhoto.style.display = 'block';
             userInitials.style.display = 'none';
         }

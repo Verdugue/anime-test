@@ -1,6 +1,5 @@
 {
-  "dependencies": {
-    "@dataconnect/generated": "file:src/dataconnect-generated",
-    "firebase": "^12.4.0"
-  }
+  "name": "favanim",
+  "private": true,
+  "description": "Favanim — revue d'animes (site statique : Vercel + Supabase + API Jikan)"
 }

@@ -1,0 +1,10 @@
+# Maquettes de design (fichiers standalone volumineux)
+Favanim - *.html
+
+# Documentation et schéma SQL (inutiles en production)
+*.md
+supabase-setup.sql
+
+# Divers
+.gitattributes
+package.json

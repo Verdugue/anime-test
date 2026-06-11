@@ -30,3 +30,6 @@ yarn.lock
 dist/
 build/
 
+# Vercel
+.vercel/
+

@@ -1,43 +1,64 @@
-// ===== Gestion de l'authentification avec Firebase =====
+// ===== Gestion de l'authentification avec Supabase =====
+// Même interface publique que l'ancien AuthManager Firebase :
+// les autres scripts (app.js, anime.js, favorites-page.js, quick-rate.js, profile.js)
+// fonctionnent sans modification.
 
 class AuthManager {
     constructor() {
         this.currentUser = null;
-        this.auth = window.firebaseAuth;
-        this.db = window.firebaseDB;
+        this.client = window.supabaseClient;
+        // Objet truthy même sans configuration pour que les pages
+        // sortent de leur boucle d'attente et affichent "connexion requise".
+        this.auth = this.client ? this.client.auth : {};
         this.authInitialized = false;
-        
+
         // Charger depuis le cache localStorage immédiatement pour éviter le flash
         this.loadFromCache();
-        
-        // Écouter les changements d'authentification
-        if (this.auth) {
-            this.auth.onAuthStateChanged(async (user) => {
-                if (user) {
-                    // Utilisateur connecté
-                    await this.loadUserData(user);
-                    console.log('✅ Utilisateur connecté:', user.email);
-                } else {
-                    // Utilisateur déconnecté
-                    this.currentUser = null;
-                    this.clearCache();
-                    console.log('ℹ️ Utilisateur déconnecté');
+
+        if (!this.client) {
+            this.authInitialized = true;
+            this.currentUser = null;
+            return;
+        }
+
+        // Session initiale + écoute des changements d'authentification
+        this.client.auth.getSession().then(async ({ data: { session } }) => {
+            if (session?.user) {
+                await this.loadUserData(session.user);
+                console.log('✅ Utilisateur connecté:', session.user.email);
+            } else {
+                this.currentUser = null;
+                this.clearCache();
+            }
+            this.authInitialized = true;
+            await this.refreshUI();
+        });
+
+        this.client.auth.onAuthStateChange(async (event, session) => {
+            if (event === 'SIGNED_IN' && session?.user) {
+                if (!this.currentUser || this.currentUser.uid !== session.user.id) {
+                    await this.loadUserData(session.user);
                 }
-                
-                // Marquer l'auth comme initialisée
-                this.authInitialized = true;
-                
-                // Mettre à jour l'interface
-                if (typeof updateAuthButton === 'function') {
-                    await updateAuthButton();
-                }
-                if (typeof updateFavoritesCount === 'function') {
-                    await updateFavoritesCount();
-                }
-            });
+            } else if (event === 'SIGNED_OUT') {
+                this.currentUser = null;
+                this._favoritesCache = null;
+                this.clearCache();
+            }
+            this.authInitialized = true;
+            await this.refreshUI();
+        });
+    }
+
+    // Rafraîchir l'interface (bouton + compteur)
+    async refreshUI() {
+        if (typeof updateAuthButton === 'function') {
+            await updateAuthButton();
+        }
+        if (typeof updateFavoritesCount === 'function') {
+            await updateFavoritesCount();
         }
     }
-    
+
     // Charger les données depuis localStorage (cache)
     loadFromCache() {
         try {
@@ -50,145 +71,133 @@ class AuthManager {
             console.error('Erreur lors du chargement du cache:', error);
         }
     }
-    
+
     // Sauvegarder dans le cache
     saveToCache() {
         try {
             if (this.currentUser) {
                 localStorage.setItem('cachedUser', JSON.stringify(this.currentUser));
-                console.log('💾 Utilisateur sauvegardé dans le cache');
             }
         } catch (error) {
             console.error('Erreur lors de la sauvegarde du cache:', error);
         }
     }
-    
+
     // Nettoyer le cache
     clearCache() {
         try {
             localStorage.removeItem('cachedUser');
             localStorage.removeItem('favoritesCount');
-            console.log('🗑️ Cache utilisateur nettoyé');
         } catch (error) {
             console.error('Erreur lors du nettoyage du cache:', error);
         }
     }
 
-    // Charger les données utilisateur depuis Firestore
-    async loadUserData(firebaseUser) {
+    // Charger le profil depuis la table "profiles"
+    async loadUserData(supabaseUser) {
         try {
-            const userDoc = await this.db.collection('users').doc(firebaseUser.uid).get();
-            
-            if (userDoc.exists) {
-                const userData = userDoc.data();
+            const { data: profile } = await this.client
+                .from('profiles')
+                .select('username, profile_photo, created_at')
+                .eq('id', supabaseUser.id)
+                .maybeSingle();
+
+            if (profile) {
                 this.currentUser = {
-                    uid: firebaseUser.uid,
-                    email: firebaseUser.email,
-                    username: userData.username || firebaseUser.email.split('@')[0],
-                    profilePhoto: userData.profilePhoto || userData.photoURL || null,
+                    uid: supabaseUser.id,
+                    email: supabaseUser.email,
+                    username: profile.username || supabaseUser.email.split('@')[0],
+                    profilePhoto: profile.profile_photo || null,
                     favorites: [],
-                    createdAt: userData.createdAt || new Date().toISOString()
+                    createdAt: profile.created_at || new Date().toISOString()
                 };
             } else {
-                // Créer le document utilisateur s'il n'existe pas
-                const username = firebaseUser.email.split('@')[0];
-                await this.db.collection('users').doc(firebaseUser.uid).set({
-                    username: username,
-                    email: firebaseUser.email,
-                    createdAt: new Date().toISOString()
+                // Créer le profil s'il n'existe pas (filet de sécurité si le trigger SQL manque)
+                const username = supabaseUser.user_metadata?.username || supabaseUser.email.split('@')[0];
+                await this.client.from('profiles').insert({
+                    id: supabaseUser.id,
+                    username: username
                 });
-                
+
                 this.currentUser = {
-                    uid: firebaseUser.uid,
-                    email: firebaseUser.email,
+                    uid: supabaseUser.id,
+                    email: supabaseUser.email,
                     username: username,
                     profilePhoto: null,
                     favorites: [],
                     createdAt: new Date().toISOString()
                 };
             }
-            
-            // Sauvegarder dans le cache pour le prochain chargement
+
             this.saveToCache();
         } catch (error) {
             console.error('Erreur lors du chargement des données utilisateur:', error);
         }
     }
 
+    // Traduction des erreurs Supabase en français
+    translateError(error) {
+        const msg = (error?.message || '').toLowerCase();
+        if (msg.includes('invalid login credentials')) return 'Email ou mot de passe incorrect';
+        if (msg.includes('already registered')) return 'Cet email est déjà utilisé';
+        if (msg.includes('password should be at least')) return 'Le mot de passe doit contenir au moins 6 caractères';
+        if (msg.includes('email not confirmed')) return 'Confirmez votre email avant de vous connecter';
+        if (msg.includes('invalid email') || msg.includes('validate email')) return 'Email invalide';
+        if (msg.includes('rate limit')) return 'Trop de tentatives, réessayez dans quelques minutes';
+        return error?.message || 'Une erreur est survenue';
+    }
+
     // Inscription
     async register(username, email, password) {
+        if (!this.client) throw new Error('Supabase non configuré (voir supabase-config.js)');
         try {
-            // Créer l'utilisateur dans Firebase Auth
-            const userCredential = await this.auth.createUserWithEmailAndPassword(email, password);
-            const user = userCredential.user;
-            
-            // Créer le document utilisateur dans Firestore
-            await this.db.collection('users').doc(user.uid).set({
-                username: username,
+            const { data, error } = await this.client.auth.signUp({
                 email: email,
-                createdAt: new Date().toISOString()
+                password: password,
+                options: { data: { username: username } }
             });
-            
-            // Mettre à jour le profil
-            await user.updateProfile({
-                displayName: username
-            });
-            
-            this.currentUser = {
-                uid: user.uid,
-                email: email,
-                username: username,
-                favorites: [],
-                createdAt: new Date().toISOString()
-            };
-            
-            return this.currentUser;
+
+            if (error) throw new Error(this.translateError(error));
+
+            if (data.session && data.user) {
+                // Connecté directement (confirmation email désactivée)
+                await this.loadUserData(data.user);
+                return this.currentUser;
+            }
+
+            // Confirmation email activée : pas de session tant que l'email n'est pas confirmé
+            return null;
         } catch (error) {
             console.error('Erreur d\'inscription:', error);
-            
-            // Messages d'erreur en français
-            switch (error.code) {
-                case 'auth/email-already-in-use':
-                    throw new Error('Cet email est déjà utilisé');
-                case 'auth/invalid-email':
-                    throw new Error('Email invalide');
-                case 'auth/weak-password':
-                    throw new Error('Le mot de passe doit contenir au moins 6 caractères');
-                default:
-                    throw new Error('Erreur lors de l\'inscription: ' + error.message);
-            }
+            throw error;
         }
     }
 
     // Connexion
     async login(email, password) {
+        if (!this.client) throw new Error('Supabase non configuré (voir supabase-config.js)');
         try {
-            const userCredential = await this.auth.signInWithEmailAndPassword(email, password);
-            await this.loadUserData(userCredential.user);
+            const { data, error } = await this.client.auth.signInWithPassword({
+                email: email,
+                password: password
+            });
+
+            if (error) throw new Error(this.translateError(error));
+
+            await this.loadUserData(data.user);
             return this.currentUser;
         } catch (error) {
             console.error('Erreur de connexion:', error);
-            
-            // Messages d'erreur en français
-            switch (error.code) {
-                case 'auth/user-not-found':
-                case 'auth/wrong-password':
-                    throw new Error('Email ou mot de passe incorrect');
-                case 'auth/invalid-email':
-                    throw new Error('Email invalide');
-                case 'auth/user-disabled':
-                    throw new Error('Ce compte a été désactivé');
-                default:
-                    throw new Error('Erreur de connexion: ' + error.message);
-            }
+            throw error;
         }
     }
 
     // Déconnexion
     async logout() {
         try {
-            await this.auth.signOut();
+            await this.client.auth.signOut();
             this.currentUser = null;
+            this._favoritesCache = null;
         } catch (error) {
             console.error('Erreur de déconnexion:', error);
             throw new Error('Erreur lors de la déconnexion');
@@ -197,13 +206,57 @@ class AuthManager {
 
     // Vérifier si l'utilisateur est connecté
     isLoggedIn() {
-        return this.currentUser !== null && this.auth.currentUser !== null;
+        return this.currentUser !== null && this.authInitialized && !!this.client;
     }
 
     // Obtenir l'utilisateur actuel
     getCurrentUser() {
         return this.currentUser;
     }
+
+    // ===== Profil =====
+
+    async updateUsername(newUsername) {
+        if (!this.isLoggedIn()) throw new Error('Vous devez être connecté');
+        const { error } = await this.client
+            .from('profiles')
+            .update({ username: newUsername })
+            .eq('id', this.currentUser.uid);
+        if (error) throw new Error('Impossible de mettre à jour le pseudo');
+
+        this.currentUser.username = newUsername;
+        this.saveToCache();
+    }
+
+    // photo = data URL base64, ou null pour supprimer
+    async updateProfilePhoto(photo) {
+        if (!this.isLoggedIn()) throw new Error('Vous devez être connecté');
+        const { error } = await this.client
+            .from('profiles')
+            .update({ profile_photo: photo })
+            .eq('id', this.currentUser.uid);
+        if (error) throw new Error('Impossible de mettre à jour la photo');
+
+        this.currentUser.profilePhoto = photo;
+        this.saveToCache();
+    }
+
+    async getProfilePhoto() {
+        if (!this.isLoggedIn()) return null;
+        try {
+            const { data } = await this.client
+                .from('profiles')
+                .select('profile_photo')
+                .eq('id', this.currentUser.uid)
+                .maybeSingle();
+            return data?.profile_photo || null;
+        } catch (error) {
+            console.error('Erreur lors du chargement de la photo:', error);
+            return null;
+        }
+    }
+
+    // ===== Favoris =====
 
     // Ajouter un anime aux favoris
     async addFavorite(anime, rating = 0, comment = '') {
@@ -212,60 +265,27 @@ class AuthManager {
         }
 
         try {
-            const favoriteData = {
-                animeId: anime.mal_id,
+            const { error } = await this.client.from('favorites').upsert({
+                user_id: this.currentUser.uid,
+                anime_id: anime.mal_id,
                 title: anime.title,
-                titleEnglish: anime.title_english || '',
+                title_english: anime.title_english || '',
                 image: anime.images?.jpg?.large_image_url || anime.images?.jpg?.image_url || '',
                 type: anime.type || 'TV',
                 episodes: anime.episodes || null,
                 score: anime.score || null,
-                userRating: rating,
-                userComment: comment,
-                addedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                userId: this.currentUser.uid
-            };
+                user_rating: rating,
+                user_comment: comment
+            });
 
-            // Ajouter aux favoris dans Firestore
-            await this.db.collection('favorites').doc(`${this.currentUser.uid}_${anime.mal_id}`).set(favoriteData);
-            
-            // Mettre à jour les statistiques de la communauté
-            await this.updateCommunityStats(anime.mal_id, rating);
-            
+            if (error) throw error;
+
+            // Les statistiques communautaires sont mises à jour par un trigger SQL
+            this._favoritesCache = null;
             return true;
         } catch (error) {
             console.error('Erreur lors de l\'ajout aux favoris:', error);
             throw new Error('Impossible d\'ajouter aux favoris');
-        }
-    }
-
-    // Mettre à jour les statistiques communautaires
-    async updateCommunityStats(animeId, rating) {
-        try {
-            const statRef = this.db.collection('community_stats').doc(animeId.toString());
-            const statDoc = await statRef.get();
-
-            if (statDoc.exists) {
-                const currentData = statDoc.data();
-                const newCount = (currentData.count || 0) + 1;
-                const newTotal = (currentData.totalRating || 0) + rating;
-                
-                await statRef.update({
-                    count: newCount,
-                    totalRating: newTotal,
-                    averageRating: newTotal / newCount,
-                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-                });
-            } else {
-                await statRef.set({
-                    count: 1,
-                    totalRating: rating,
-                    averageRating: rating,
-                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-                });
-            }
-        } catch (error) {
-            console.error('Erreur lors de la mise à jour des stats:', error);
         }
     }
 
@@ -276,13 +296,15 @@ class AuthManager {
         }
 
         try {
-            const docId = `${this.currentUser.uid}_${animeId}`;
-            await this.db.collection('favorites').doc(docId).update({
-                userRating: rating,
-                userComment: comment,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            
+            const { error } = await this.client
+                .from('favorites')
+                .update({ user_rating: rating, user_comment: comment })
+                .eq('user_id', this.currentUser.uid)
+                .eq('anime_id', animeId);
+
+            if (error) throw error;
+
+            this._favoritesCache = null;
             return true;
         } catch (error) {
             console.error('Erreur lors de la mise à jour:', error);
@@ -297,8 +319,15 @@ class AuthManager {
         }
 
         try {
-            const docId = `${this.currentUser.uid}_${animeId}`;
-            await this.db.collection('favorites').doc(docId).delete();
+            const { error } = await this.client
+                .from('favorites')
+                .delete()
+                .eq('user_id', this.currentUser.uid)
+                .eq('anime_id', animeId);
+
+            if (error) throw error;
+
+            this._favoritesCache = null;
         } catch (error) {
             console.error('Erreur lors de la suppression:', error);
             throw new Error('Impossible de retirer des favoris');
@@ -312,71 +341,58 @@ class AuthManager {
         }
 
         try {
-            const docId = `${this.currentUser.uid}_${animeId}`;
-            const doc = await this.db.collection('favorites').doc(docId).get();
-            return doc.exists;
+            const favorites = await this.getFavorites();
+            return favorites.some(fav => fav.mal_id === animeId);
         } catch (error) {
             console.error('Erreur lors de la vérification:', error);
             return false;
         }
     }
 
-    // Obtenir tous les favoris (avec cache local)
+    // Obtenir tous les favoris (avec cache local 30 s)
     _favoritesCache = null;
     _favoritesCacheTime = null;
-    
+
     async getFavorites(forceRefresh = false) {
-        console.log('🔍 getFavorites() appelée, forceRefresh:', forceRefresh);
         if (!this.isLoggedIn()) {
-            console.log('❌ Utilisateur non connecté');
             return [];
         }
 
-        console.log('👤 Utilisateur connecté, UID:', this.currentUser.uid);
-
-        // Cache de 30 secondes
         const now = Date.now();
         if (!forceRefresh && this._favoritesCache && this._favoritesCacheTime && (now - this._favoritesCacheTime < 30000)) {
-            console.log('📦 Retour du cache:', this._favoritesCache.length, 'favoris');
             return this._favoritesCache;
         }
 
         try {
-            console.log('🔍 Requête Firestore pour userId:', this.currentUser.uid);
-            // Requête sans tri pour éviter l'erreur d'index en construction
-            const snapshot = await this.db.collection('favorites')
-                .where('userId', '==', this.currentUser.uid)
-                .get();
-            
-            console.log('📊 Snapshot reçu, taille:', snapshot.size);
-            
-            const favorites = [];
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                favorites.push({
-                    mal_id: data.animeId,
-                    title: data.title,
-                    title_english: data.titleEnglish,
-                    images: {
-                        jpg: {
-                            large_image_url: data.image
-                        }
-                    },
-                    type: data.type,
-                    episodes: data.episodes,
-                    score: data.score,
-                    userRating: data.userRating,
-                    userComment: data.userComment,
-                    addedAt: data.addedAt?.toDate().toISOString() || new Date().toISOString()
-                });
-            });
-            
-            // Trier manuellement par date (du plus récent au plus ancien)
-            favorites.sort((a, b) => new Date(b.addedAt) - new Date(a.addedAt));
-            
+            const { data, error } = await this.client
+                .from('favorites')
+                .select('*')
+                .eq('user_id', this.currentUser.uid)
+                .order('added_at', { ascending: false });
+
+            if (error) throw error;
+
+            // Même forme d'objet que l'ancienne version Firebase
+            const favorites = (data || []).map(row => ({
+                mal_id: row.anime_id,
+                title: row.title,
+                title_english: row.title_english,
+                images: {
+                    jpg: {
+                        large_image_url: row.image
+                    }
+                },
+                type: row.type,
+                episodes: row.episodes,
+                score: row.score,
+                userRating: row.user_rating,
+                userComment: row.user_comment,
+                addedAt: row.added_at
+            }));
+
             this._favoritesCache = favorites;
             this._favoritesCacheTime = now;
-            
+
             return favorites;
         } catch (error) {
             console.error('Erreur lors de la récupération des favoris:', error);
@@ -399,38 +415,42 @@ class AuthManager {
         }
     }
 
-    // Obtenir les statistiques communautaires d'un anime
+    // ===== Statistiques communautaires (lecture seule, écrites par trigger SQL) =====
+
     async getCommunityStats(animeId) {
         try {
-            const statDoc = await this.db.collection('community_stats').doc(animeId.toString()).get();
-            
-            if (statDoc.exists) {
-                return statDoc.data();
-            }
-            return null;
+            const { data } = await this.client
+                .from('community_stats')
+                .select('*')
+                .eq('anime_id', animeId)
+                .maybeSingle();
+            if (!data) return null;
+            return {
+                count: data.count,
+                totalRating: data.total_rating,
+                averageRating: data.average_rating,
+                lastUpdated: data.last_updated
+            };
         } catch (error) {
             console.error('Erreur lors de la récupération des stats:', error);
             return null;
         }
     }
 
-    // Obtenir les top animes de la communauté
     async getCommunityTopAnimes(limit = 10) {
         try {
-            const snapshot = await this.db.collection('community_stats')
-                .orderBy('count', 'desc')
-                .limit(limit)
-                .get();
-            
-            const topAnimes = [];
-            snapshot.forEach(doc => {
-                topAnimes.push({
-                    animeId: doc.id,
-                    ...doc.data()
-                });
-            });
-            
-            return topAnimes;
+            const { data } = await this.client
+                .from('community_stats')
+                .select('*')
+                .order('count', { ascending: false })
+                .limit(limit);
+
+            return (data || []).map(row => ({
+                animeId: String(row.anime_id),
+                count: row.count,
+                totalRating: row.total_rating,
+                averageRating: row.average_rating
+            }));
         } catch (error) {
             console.error('Erreur lors de la récupération du top communauté:', error);
             return [];
@@ -455,7 +475,7 @@ const registerForm = document.getElementById('registerForm');
 const loginFormElement = document.getElementById('loginFormElement');
 const registerFormElement = document.getElementById('registerFormElement');
 
-// Liens de switch
+// Onglets de switch
 const showRegisterLink = document.getElementById('showRegister');
 const showLoginLink = document.getElementById('showLogin');
 
@@ -514,7 +534,7 @@ async function initAuthUI() {
                 await updateFavoritesCount();
                 showNotification(`Bienvenue ${authManager.getCurrentUser().username} !`, 'success');
                 loginFormElement.reset();
-                
+
                 // Rafraîchir l'affichage
                 if (typeof updateFavoriteButtons === 'function') {
                     updateFavoriteButtons();
@@ -548,14 +568,24 @@ async function initAuthUI() {
             }
 
             try {
-                await authManager.register(username, email, password);
+                const user = await authManager.register(username, email, password);
                 closeModal(authModal);
-                await updateAuthButton();
-                await updateFavoritesCount();
-                showNotification(`Bienvenue ${username} ! Votre compte a été créé.`, 'success');
                 registerFormElement.reset();
+
+                if (user) {
+                    // Connecté directement
+                    await updateAuthButton();
+                    await updateFavoritesCount();
+                    showNotification(`Bienvenue ${username} ! Votre compte a été créé.`, 'success');
+                } else {
+                    // Confirmation par email requise
+                    showNotification('Compte créé ! Vérifiez votre boîte mail pour confirmer votre inscription.', 'info');
+                }
+
                 registerForm.classList.remove('active');
                 loginForm.classList.add('active');
+                if (showLoginLink) showLoginLink.classList.add('active');
+                if (showRegisterLink) showRegisterLink.classList.remove('active');
             } catch (error) {
                 showNotification(error.message, 'error');
             }
@@ -589,13 +619,11 @@ function authBtnUserMarkup(user) {
 // Mettre à jour le bouton d'authentification
 async function updateAuthButton() {
     if (!authBtn) {
-        console.log('❌ authBtn introuvable');
         return;
     }
 
     if (authManager.isLoggedIn()) {
         const user = authManager.getCurrentUser();
-        console.log('🔄 Mise à jour du bouton auth pour:', user.username);
 
         // Afficher immédiatement depuis le cache si disponible
         const cachedPhoto = user.profilePhoto;
@@ -603,13 +631,10 @@ async function updateAuthButton() {
         authBtn.classList.add('nav-user');
         authBtn.innerHTML = authBtnUserMarkup(user);
 
-        // Vérifier Firestore en arrière-plan pour mettre à jour si nécessaire
+        // Vérifier la photo en arrière-plan pour mettre à jour si nécessaire
         try {
-            const userDoc = await authManager.db.collection('users').doc(user.uid).get();
-            const userData = userDoc.data();
-            const profilePhoto = userData?.profilePhoto || userData?.photoURL;
+            const profilePhoto = await authManager.getProfilePhoto();
 
-            // Mettre à jour si la photo a changé
             if (profilePhoto !== cachedPhoto) {
                 user.profilePhoto = profilePhoto;
                 authManager.saveToCache();
@@ -670,7 +695,7 @@ function showNotification(message, type = 'info') {
     const notification = document.createElement('div');
     notification.className = `notification notification-${type}`;
     notification.textContent = message;
-    
+
     notification.style.cssText = `
         position: fixed;
         top: 90px;
@@ -724,7 +749,7 @@ style.textContent = `
             opacity: 1;
         }
     }
-    
+
     @keyframes slideOutRight {
         from {
             transform: translateX(0);
@@ -744,4 +769,3 @@ if (document.readyState === 'loading') {
 } else {
     initAuthUI();
 }
-

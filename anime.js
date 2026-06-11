@@ -354,7 +354,7 @@ function setFavBtn(isFav) {
 }
 
 async function initFavState() {
-    // Attendre que Firebase Auth soit prêt (max 5 s)
+    // Attendre que l'authentification soit prête (max 5 s)
     let attempts = 0;
     while (!authManager.authInitialized && attempts < 50) {
         await sleep(100);

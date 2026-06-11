@@ -15,7 +15,7 @@ async function initFavoritesPage() {
     // Afficher un loading
     favoritesContainer.innerHTML = '<div class="loading" style="grid-column: 1/-1; background: var(--bg);"><div class="spinner"></div><p>Chargement de vos favoris…</p></div>';
     
-    // Attendre que Firebase Auth soit prêt
+    // Attendre que l'authentification soit prête
     if (!authManager.auth) {
         setTimeout(initFavoritesPage, 100);
         return;

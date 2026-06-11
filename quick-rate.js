@@ -48,7 +48,7 @@ const RATE_LABELS = {
 async function initQuickRate() {
     updateAuthButton();
 
-    // Attendre que Firebase Auth soit prêt
+    // Attendre que l'authentification soit prête
     if (!authManager.auth) {
         setTimeout(initQuickRate, 100);
         return;

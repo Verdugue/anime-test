@@ -1,382 +1,63 @@
-# 🎌 AnimeHub - Application Web d'Animes
+# Favanim — Manga Editorial
 
-Une application web moderne et élégante pour explorer des milliers d'animes avec un système complet d'authentification et de favoris.
+Revue d'animes communautaire : catalogue, fiches détaillées, favoris notés et commentés, notation rapide.
+Site **100 % statique** (HTML/CSS/JS, aucun build) — design éditorial "Manga" (Anton / JetBrains Mono / Inter, jaune shōnen & rouge manga, thème nuit/jour).
 
-![Violet & Rose Theme](https://img.shields.io/badge/Theme-Violet%20%26%20Rose-blueviolet)
-![JavaScript](https://img.shields.io/badge/JavaScript-Vanilla-yellow)
-![API](https://img.shields.io/badge/API-Jikan-blue)
+## Stack
 
-## ✨ Fonctionnalités
+| Rôle | Service |
+|---|---|
+| Hébergement | **Vercel** (zéro config) |
+| Auth + base de données | **Supabase** (email/password + Postgres avec RLS) |
+| Données animes | **API Jikan** (MyAnimeList) — catalogue, fiches, personnages, staff, recommandations |
 
-### 🎨 Design Moderne
-- **Thème violet/rose** avec dégradés élégants (#8B5CF6 → #EC4899)
-- **Animations fluides** et effets de hover sophistiqués
-- **Interface responsive** adaptée à tous les écrans
-- **Typographie moderne** et lisible
+> ⚠️ Migration Firebase → Supabase faite le 11/06/2026. Les anciens fichiers Firebase ont été supprimés (récupérables via git). **Les comptes/favoris Firebase ne sont pas migrés automatiquement.**
 
-### 📺 Gestion des Animes
-- **20 animes par page** avec pagination intuitive
-- **Navigation fluide** entre les pages
-- **Cartes animées** avec effets de survol
-- **Détails complets** pour chaque anime (synopsis, score, studios, etc.)
-- **Bandes-annonces** intégrées
+## ✅ À FAIRE pour mettre en ligne (~10 min)
 
-### 🔐 Authentification
-- **Inscription** avec validation des données
-- **Connexion** sécurisée
-- **Session persistante** (localStorage)
-- **Gestion de profil** utilisateur
+1. **Créer le projet Supabase** sur [supabase.com](https://supabase.com) (gratuit, région ex. `eu-west-3` Paris).
+2. **Créer les tables** : dashboard → SQL Editor → coller tout [`supabase-setup.sql`](supabase-setup.sql) → Run.
+   (Tables `profiles`, `favorites`, `community_stats` + règles RLS + triggers.)
+3. **Renseigner les clés** dans [`supabase-config.js`](supabase-config.js) :
+   - dashboard → Settings → API → copier **Project URL** → `SUPABASE_URL`
+   - copier la clé **anon public** → `SUPABASE_ANON_KEY`
+4. **Recommandé** : Authentication → Sign In / Up → désactiver **"Confirm email"**
+   (sinon les inscrits doivent valider un mail avant de pouvoir se connecter — le site gère ce cas, mais c'est une friction).
+5. **Déployer sur Vercel** : pousser sur GitHub → [vercel.com](https://vercel.com) → Add New → Project → importer le repo → preset **Other**, build et output **vides** → Deploy.
+   (Ou en CLI : `npm i -g vercel` puis `vercel --prod`.)
+6. **Vérifier** : catalogue OK sans connexion → créer un compte (onglet 02 Inscription) → ajouter un favori → il apparaît dans Favoris et dans la table `favorites` du dashboard.
 
-### ⚡ Notation Rapide (Style Tinder)
-- **Interface swipe** pour découvrir rapidement des animes
-- **Deux actions** : Skip (👎) ou Like (❤️)
-- **Skip** : Ignorer un anime non vu
-- **Like** : Ouvre la modale de notation complète
-- **Support clavier** : ← pour skip, → pour like
-- **Compteurs** : Statistiques en temps réel
-- **Sessions** de 20 animes aléatoires
+Détails complets dans [`SUPABASE_SETUP.md`](SUPABASE_SETUP.md).
 
-### ❤️ Système de Favoris Avancé
-- **Page dédiée** aux favoris (pas juste une popup)
-- **Notation** de 0.5 à 5 étoiles (demi-étoiles incluses)
-- **Commentaires** personnalisés sur chaque anime
-- **Modification** de vos notes et commentaires
-- **Persistance** des favoris par utilisateur
-- **Compteur** en temps réel
-- **Date d'ajout** pour chaque favori
+### Bon à savoir
 
-### 🔍 Recherche
-- **Recherche en temps réel** d'animes
-- **Résultats paginés**
-- **Effacement automatique** pour revenir aux top animes
+- La clé `anon` est **publique par conception** : la sécurité vient des règles RLS (chacun ne lit/écrit que ses données), pas du secret de la clé. Ne jamais mettre la clé `service_role` dans le code.
+- `.vercelignore` exclut du déploiement les maquettes standalone (~40 Mo) et les fichiers `.md`/`.sql`.
+- Les stats communautaires (`community_stats`) sont écrites uniquement par un trigger SQL, jamais par le navigateur.
+- L'API Jikan est limitée à ~3 req/s : la page détail espace ses 5 requêtes (file d'attente + retry sur 429).
+- Le site fonctionne sans Supabase configuré (catalogue + fiches) ; seuls connexion et favoris attendent les clés.
 
-## 🚀 Installation
+## Pages
 
-### Prérequis
-- Un navigateur web moderne (Chrome, Firefox, Edge, Safari)
-- Un serveur web local (optionnel mais recommandé)
+| Page | Contenu |
+|---|---|
+| `index.html` | Hero éditorial, compteurs réels, carte "À la une" (n°1 du classement), filtres en chips (type/genres/tri), grille, pagination |
+| `anime.html?id=X` | Fiche dédiée "Dossier" : poster, score + votes, infos, relations, musiques (OP/ED), synopsis, personnages + doubleurs, auteur (photo) + ses œuvres, bande-annonce, recommandations |
+| `favorites.html` | Collection avec note /5, commentaire, modifier/retirer, stats (nombre + moyenne) |
+| `quick-rate.html` | Notation rapide : carte par carte, étoiles + commentaire, barre de progression |
+| `profile.html` | Profil : pseudo, photo (crop), stats, derniers favoris, déconnexion |
 
-### Méthode 1 : Utilisation directe
-```bash
-# Cloner ou télécharger le projet
-cd anime-hub
-
-# Ouvrir index.html dans votre navigateur
-# Ou utiliser un serveur local
-```
-
-### Méthode 2 : Serveur local avec Python
-```bash
-# Python 3
-python -m http.server 8000
-
-# Ouvrir http://localhost:8000 dans votre navigateur
-```
-
-### Méthode 3 : Live Server (VS Code)
-```bash
-# Installer l'extension "Live Server" dans VS Code
-# Clic droit sur index.html -> "Open with Live Server"
-```
-
-## 📁 Structure du Projet
+## Structure du code
 
 ```
-anime-hub/
-│
-├── index.html           # Page d'accueil avec liste d'animes
-├── favorites.html       # Page dédiée aux favoris
-├── quick-rate.html      # Page de notation rapide (Tinder style)
-├── styles.css          # Styles principaux et animations
-├── favorites.css       # Styles spécifiques aux favoris
-├── quick-rate.css      # Styles pour la notation rapide
-├── app.js              # Logique principale et API Jikan
-├── auth.js             # Authentification et gestion favoris
-├── favorites-page.js   # Logique de la page favoris
-├── quick-rate.js       # Logique de notation rapide
-└── README.md           # Documentation
+styles.css            ← design system partagé (tokens, nav, cartes, modales…)
+anime.css / favorites.css / quick-rate.css / profile.css   ← styles par page
+theme.js              ← thème nuit/jour (persisté localStorage)
+supabase-config.js    ← ⚠️ clés à renseigner (étape 3)
+auth-supabase.js      ← authManager (auth + favoris + profil) + UI partagée
+app.js                ← catalogue (Jikan)
+anime.js              ← fiche détail (Jikan, 5 requêtes en file d'attente)
+favorites-page.js / quick-rate.js / profile.js / star-rating.js
+supabase-setup.sql    ← schéma BDD à exécuter une fois dans Supabase
+Favanim - *.html      ← maquettes de design (non déployées)
 ```
-
-## 🚀 Démarrage Rapide
-
-1. **Ouvrez `index.html`** dans votre navigateur (ou utilisez un serveur local)
-2. **Créez un compte** : Cliquez sur "Se connecter" → "S'inscrire"
-   - Ex: test@test.com / 123456
-3. **Mode Notation Rapide ⚡** :
-   - Cliquez sur "⚡ Notation Rapide" 
-   - Skip (👎) ou Like (❤️) les animes style Tinder
-   - Utilisez les flèches ← → du clavier
-4. **Ajoutez des favoris** avec notes et commentaires
-5. **Consultez vos favoris** sur la page dédiée
-
-## 🎯 Utilisation
-
-### Navigation de Base
-
-1. **Page d'accueil** : Affiche les 20 meilleurs animes
-2. **Pagination** : Utilisez les boutons ou numéros de page
-3. **Détails** : Cliquez sur une carte pour voir les détails complets
-4. **Notation Rapide** : Mode découverte style Tinder
-5. **Favoris** : Page dédiée à vos animes préférés
-
-### Authentification
-
-#### S'inscrire
-1. Cliquez sur **"Se connecter"** dans la navbar
-2. Cliquez sur **"S'inscrire"**
-3. Remplissez le formulaire :
-   - Nom d'utilisateur
-   - Email
-   - Mot de passe (min. 6 caractères)
-   - Confirmation du mot de passe
-4. Cliquez sur **"S'inscrire"**
-
-#### Se connecter
-1. Cliquez sur **"Se connecter"**
-2. Entrez votre email et mot de passe
-3. Cliquez sur **"Se connecter"**
-
-#### Se déconnecter
-1. Cliquez sur votre nom d'utilisateur
-2. Confirmez la déconnexion
-
-### Gestion des Favoris
-
-#### Ajouter un anime aux favoris
-1. Cliquez sur une carte d'anime pour voir ses détails
-2. Cliquez sur **"🤍 Ajouter aux favoris"**
-3. Une modale s'ouvre vous demandant :
-   - **Votre note** : de 0.5 à 5 étoiles (incluant les demi-étoiles)
-   - **Votre commentaire** : optionnel, partagez votre avis
-4. Cliquez sur **"❤️ Ajouter à mes favoris"**
-
-#### Voir vos favoris
-- Cliquez sur **"❤️ Favoris"** dans la navbar
-- Vous accédez à la **page dédiée des favoris**
-- Chaque favori affiche :
-  - Image et informations de l'anime
-  - Votre note avec étoiles dorées
-  - Votre commentaire
-  - Date d'ajout
-
-#### Modifier un favori
-1. Sur la page des favoris, cliquez sur **"✏️ Modifier"**
-2. Modifiez votre note et/ou commentaire
-3. Cliquez sur **"💾 Enregistrer les modifications"**
-
-#### Retirer un anime des favoris
-- Cliquez sur **"🗑️ Retirer"** sur la page des favoris
-- Confirmez la suppression
-
-### Recherche
-
-1. Utilisez la **barre de recherche** dans la navbar
-2. Tapez le nom d'un anime
-3. Appuyez sur **Entrée** ou cliquez sur **🔍**
-4. Les résultats s'affichent avec pagination
-5. Effacez le champ de recherche pour revenir aux top animes
-
-### Notation Rapide
-
-1. Cliquez sur **"⚡ Notation Rapide"** dans la navbar
-2. Des animes aléatoires s'affichent un par un
-3. Pour chaque anime :
-   - **👎 Pas vu** : Ignorez l'anime (flèche gauche ←)
-   - **❤️ J'aime** : Ouvre la modale de notation (flèche droite →)
-4. Si vous aimez, notez l'anime et ajoutez un commentaire
-5. L'anime passe automatiquement au suivant
-6. Statistiques en temps réel :
-   - Nombre d'animes ignorés
-   - Nombre d'animes notés
-   - Total traité
-7. À la fin de la session (20 animes), vous pouvez recommencer
-
-## 🔌 API Utilisée
-
-### Jikan API v4
-- **URL** : https://api.jikan.moe/v4
-- **Documentation** : https://docs.api.jikan.moe/
-- **Type** : API REST publique et gratuite
-- **Source** : MyAnimeList (unofficial)
-
-### Endpoints Utilisés
-
-```javascript
-// Top animes
-GET /top/anime?page={page}&limit=20
-
-// Recherche
-GET /anime?q={query}&page={page}&limit=20&order_by=popularity
-
-// Détails
-GET /anime/{id}/full
-```
-
-### Limite de Rate
-- **3 requêtes par seconde**
-- **60 requêtes par minute**
-
-## 💾 Stockage des Données
-
-### LocalStorage
-L'application utilise le localStorage du navigateur pour :
-
-```javascript
-{
-  // Utilisateurs enregistrés
-  "users": [
-    {
-      "username": "John",
-      "email": "john@example.com",
-      "password": "******",
-      "favorites": [...],
-      "createdAt": "2025-10-20T..."
-    }
-  ],
-  
-  // Utilisateur actuellement connecté
-  "currentUser": {
-    "username": "John",
-    "email": "john@example.com",
-    "favorites": [...]
-  }
-}
-```
-
-### Sécurité
-⚠️ **Note** : Cette application est conçue à des fins de démonstration.
-- Les mots de passe sont stockés en clair (non recommandé en production)
-- Pour une application réelle, utilisez :
-  - Un backend sécurisé
-  - Hashage des mots de passe (bcrypt, argon2)
-  - Tokens d'authentification (JWT)
-  - HTTPS
-
-## 🎨 Palette de Couleurs
-
-```css
-Violet principal : #8B5CF6
-Rose principal   : #EC4899
-Fond sombre      : #0F172A
-Carte            : #1E293B
-Texte primaire   : #F1F5F9
-Texte secondaire : #94A3B8
-Dégradé          : linear-gradient(135deg, #8B5CF6, #EC4899)
-```
-
-## 📱 Responsive Design
-
-L'application s'adapte automatiquement :
-- **Desktop** : Grille 4-5 colonnes
-- **Tablette** : Grille 2-3 colonnes
-- **Mobile** : Grille 1-2 colonnes
-
-## ⚡ Performances
-
-### Optimisations
-- Chargement différé des images
-- Animations CSS hardware-accelerated
-- Limitation des requêtes API
-- Cache local avec localStorage
-
-### Compatibilité
-- Chrome 90+
-- Firefox 88+
-- Safari 14+
-- Edge 90+
-
-## 🐛 Résolution des Problèmes
-
-### L'API ne répond pas
-- **Cause** : Limite de rate atteinte
-- **Solution** : Attendez quelques secondes et réessayez
-
-### Les images ne s'affichent pas
-- **Cause** : URL d'image invalide
-- **Solution** : L'application affiche automatiquement un placeholder
-
-### Les favoris ne se sauvegardent pas
-- **Cause** : localStorage désactivé
-- **Solution** : Activez les cookies/localStorage dans votre navigateur
-
-### Erreur CORS
-- **Cause** : Ouverture directe du fichier HTML
-- **Solution** : Utilisez un serveur local
-
-## 🎮 Raccourcis Clavier
-
-### Page de Notation Rapide
-- **← (Flèche gauche)** ou **Q** : Skip l'anime
-- **→ (Flèche droite)** ou **L** : Like l'anime
-
-### Navigation
-- **Échap** : Fermer les modales
-
-## 🔮 Améliorations Futures
-
-- [ ] Swipe tactile sur mobile pour la notation rapide
-- [ ] Mode sombre/clair personnalisable
-- [ ] Filtres avancés (genre, année, studio, statut)
-- [ ] Tri des favoris (note, date, titre)
-- [ ] Export/Import de favoris en JSON
-- [ ] Graphiques et statistiques détaillées
-- [ ] Partage de favoris avec d'autres utilisateurs
-- [ ] Backend réel avec authentification sécurisée
-- [ ] Base de données pour les utilisateurs
-- [ ] Notifications push pour nouveaux épisodes
-- [ ] Mode hors ligne (PWA)
-- [ ] Recommandations IA basées sur vos favoris
-- [ ] Liste "À regarder" et "En cours" en plus des favoris
-- [ ] Intégration calendrier de sortie des épisodes
-- [ ] Support multi-langues
-
-## 🎨 Aperçu des Fonctionnalités
-
-### Page d'Accueil
-- Grille d'animes avec badges ❤️ pour les favoris
-- Recherche instantanée
-- Pagination fluide
-
-### Notation Rapide ⚡
-- Interface type Tinder/Swipe
-- 2 gros boutons : Skip ou Like
-- Animations de carte
-- Compteurs en temps réel
-- Support clavier complet
-
-### Page Favoris
-- Liste détaillée avec notes en étoiles
-- Commentaires personnalisés
-- Boutons Modifier/Supprimer
-- Date d'ajout
-
-## 📄 Licence
-
-Ce projet est libre d'utilisation pour des fins éducatives et personnelles.
-
-## 🤝 Contribution
-
-Les contributions sont les bienvenues ! N'hésitez pas à :
-- Signaler des bugs
-- Proposer des fonctionnalités
-- Améliorer le code
-- Corriger la documentation
-
-## 💡 Crédits
-
-- **API** : [Jikan API v4](https://jikan.moe/) (API non-officielle MyAnimeList)
-- **Design** : Inspiré par les applications modernes avec thème violet/rose
-- **Concept** : Notation rapide inspirée de Tinder
-
-## 📧 Contact
-
-Pour toute question ou suggestion, n'hésitez pas à ouvrir une issue.
-
----
-
-**Fait avec ❤️ et beaucoup de ☕**
-
-*Propulsé par l'API Jikan et MyAnimeList*
-
-**Version 2.0** - Avec notation rapide style Tinder ! ⚡
-
