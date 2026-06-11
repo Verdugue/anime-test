@@ -479,12 +479,14 @@ async function initAuthUI() {
         });
     }
 
-    // Switch entre login et register
+    // Switch entre login et register (onglets 01 / 02)
     if (showRegisterLink) {
         showRegisterLink.addEventListener('click', (e) => {
             e.preventDefault();
             loginForm.classList.remove('active');
             registerForm.classList.add('active');
+            showRegisterLink.classList.add('active');
+            if (showLoginLink) showLoginLink.classList.remove('active');
         });
     }
 
@@ -493,6 +495,8 @@ async function initAuthUI() {
             e.preventDefault();
             registerForm.classList.remove('active');
             loginForm.classList.add('active');
+            showLoginLink.classList.add('active');
+            if (showRegisterLink) showRegisterLink.classList.remove('active');
         });
     }
 
@@ -573,68 +577,77 @@ async function initAuthUI() {
     });
 }
 
+// Markup du bouton utilisateur (avatar + pseudo, style éditorial)
+function authBtnUserMarkup(user) {
+    if (user.profilePhoto) {
+        return `<img src="${user.profilePhoto}" alt="${user.username}" class="nav-profile-photo"><span class="nav-user-pseudo">${user.username}</span>`;
+    }
+    const initials = user.username.substring(0, 2).toUpperCase();
+    return `<span class="user-avatar small">${initials}</span><span class="nav-user-pseudo">${user.username}</span>`;
+}
+
 // Mettre à jour le bouton d'authentification
 async function updateAuthButton() {
     if (!authBtn) {
         console.log('❌ authBtn introuvable');
         return;
     }
-    
+
     if (authManager.isLoggedIn()) {
         const user = authManager.getCurrentUser();
         console.log('🔄 Mise à jour du bouton auth pour:', user.username);
-        
+
         // Afficher immédiatement depuis le cache si disponible
         const cachedPhoto = user.profilePhoto;
-        
-        if (cachedPhoto) {
-            authBtn.innerHTML = `<img src="${cachedPhoto}" alt="${user.username}" class="nav-profile-photo"> ${user.username}`;
-        } else {
-            const initials = user.username.substring(0, 2).toUpperCase();
-            authBtn.innerHTML = `<span class="nav-profile-initials">${initials}</span> ${user.username}`;
-        }
-        authBtn.style.background = 'linear-gradient(135deg, #8B5CF6, #EC4899)';
-        
+
+        authBtn.classList.add('nav-user');
+        authBtn.innerHTML = authBtnUserMarkup(user);
+
         // Vérifier Firestore en arrière-plan pour mettre à jour si nécessaire
         try {
             const userDoc = await authManager.db.collection('users').doc(user.uid).get();
             const userData = userDoc.data();
             const profilePhoto = userData?.profilePhoto || userData?.photoURL;
-            
+
             // Mettre à jour si la photo a changé
             if (profilePhoto !== cachedPhoto) {
                 user.profilePhoto = profilePhoto;
                 authManager.saveToCache();
-                
-                if (profilePhoto) {
-                    authBtn.innerHTML = `<img src="${profilePhoto}" alt="${user.username}" class="nav-profile-photo"> ${user.username}`;
-                } else {
-                    const initials = user.username.substring(0, 2).toUpperCase();
-                    authBtn.innerHTML = `<span class="nav-profile-initials">${initials}</span> ${user.username}`;
-                }
+                authBtn.innerHTML = authBtnUserMarkup(user);
             }
         } catch (error) {
             console.error('❌ Erreur lors de la récupération de la photo de profil:', error);
         }
     } else {
-        authBtn.textContent = 'Se connecter';
-        authBtn.style.background = '';
+        authBtn.classList.remove('nav-user');
+        authBtn.innerHTML = '<span class="nav-user-pseudo">Se connecter</span>';
     }
 }
 
 // Mettre à jour le compteur de favoris
+function renderFavCount(count) {
+    const n = Number(count) || 0;
+    if (favCountElement) {
+        favCountElement.textContent = n;
+        favCountElement.style.display = n > 0 ? '' : 'none';
+    }
+    // Compteur éditorial du hero (index)
+    const counterFavs = document.getElementById('counterFavs');
+    if (counterFavs) {
+        counterFavs.textContent = n.toLocaleString('fr-FR');
+    }
+}
+
 async function updateFavoritesCount() {
-    if (!favCountElement) return;
-    
     // Charger immédiatement depuis le cache
     const cachedCount = localStorage.getItem('favoritesCount');
     if (cachedCount !== null) {
-        favCountElement.textContent = cachedCount;
+        renderFavCount(cachedCount);
     }
-    
+
     // Mettre à jour en arrière-plan
     const count = await authManager.getFavoritesCount();
-    favCountElement.textContent = count;
+    renderFavCount(count);
     localStorage.setItem('favoritesCount', count);
 }
 
@@ -660,27 +673,33 @@ function showNotification(message, type = 'info') {
     
     notification.style.cssText = `
         position: fixed;
-        top: 100px;
+        top: 90px;
         right: 20px;
-        padding: 1rem 2rem;
-        border-radius: 15px;
-        color: white;
-        font-weight: 600;
+        padding: 14px 20px;
+        border-radius: 0;
+        background: #0a0a0a;
+        color: #f5f1e8;
+        border: 1px solid rgba(245, 241, 232, 0.4);
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 11px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
         z-index: 3000;
         animation: slideInRight 0.4s ease;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
         max-width: 400px;
     `;
 
     switch(type) {
         case 'success':
-            notification.style.background = 'linear-gradient(135deg, #10B981, #059669)';
+            notification.style.borderLeft = '3px solid #FFD60A';
             break;
         case 'error':
-            notification.style.background = 'linear-gradient(135deg, #EF4444, #DC2626)';
+            notification.style.borderLeft = '3px solid #E63946';
+            notification.style.color = '#E63946';
             break;
         case 'info':
-            notification.style.background = 'linear-gradient(135deg, #8B5CF6, #EC4899)';
+            notification.style.borderLeft = '3px solid rgba(245, 241, 232, 0.6)';
             break;
     }
 

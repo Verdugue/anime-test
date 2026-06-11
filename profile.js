@@ -117,21 +117,18 @@ async function loadStats() {
         ? bestTitle.substring(0, 20) + '...' 
         : bestTitle;
     
-    // Appliquer le gradient au meilleur anime
+    // Mettre le meilleur anime en avant (accent éditorial)
     if (bestTitle !== 'Aucun' && bestTitle !== '-') {
-        statBestRated.style.background = 'var(--gradient)';
-        statBestRated.style.webkitBackgroundClip = 'text';
-        statBestRated.style.webkitTextFillColor = 'transparent';
-        statBestRated.style.backgroundClip = 'text';
+        statBestRated.style.color = 'var(--accent)';
     }
 }
 
 // Fonction pour générer les étoiles (sans demi-étoiles)
 function generateStars(rating) {
     if (!rating || rating === 0) return '';
-    
+
     const fullStars = Math.floor(rating);
-    return '⭐'.repeat(fullStars);
+    return '★'.repeat(fullStars);
 }
 
 // Charger les derniers favoris
@@ -140,7 +137,7 @@ async function loadRecentFavorites() {
     const recentList = document.getElementById('recentFavoritesList');
     
     if (favorites.length === 0) {
-        recentList.innerHTML = '<p style="color: var(--text-secondary); text-align: center;">Aucun favori pour le moment</p>';
+        recentList.innerHTML = '<p style="color: var(--text-dim); text-align: center; padding: 24px 0;">Aucun favori pour le moment</p>';
         return;
     }
     

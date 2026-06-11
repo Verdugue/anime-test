@@ -3,191 +3,307 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AnimeHub - Découvrez vos animes préférés</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Favanim — Manga Editorial</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@700&display=swap" rel="stylesheet">
+    <script src="theme.js?v=36"></script>
+    <link rel="stylesheet" href="styles.css?v=36">
 </head>
 <body>
     <!-- Navigation -->
-    <nav class="navbar">
-        <div class="container">
-            <div class="nav-brand">
-                <h1>🎌 AnimeHub</h1>
+    <nav class="nav-root">
+        <div class="nav-inner">
+            <a class="nav-logo" href="index.html">
+                <span class="nav-logo-mark">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                        <path d="M3 5h18M2 8h20M5 5v15M19 5v15M8 11h8"/>
+                    </svg>
+                </span>
+                <span class="nav-logo-text">
+                    <span class="nav-logo-word">Favanim</span>
+                    <span class="nav-logo-jp">ファブアニム</span>
+                </span>
+            </a>
+
+            <div class="nav-links">
+                <a class="nav-link active" href="index.html">Catalogue<span class="nav-link-dot"></span></a>
+                <a class="nav-link" href="favorites.html">Favoris</a>
+                <a class="nav-link" href="quick-rate.html">Quick Rate</a>
             </div>
-            <div class="nav-menu">
-                
-                <a href="quick-rate.html" class="nav-btn" style="text-decoration: none;">
-                    ⚡ Notation Rapide
+
+            <div class="nav-actions">
+                <button class="nav-icon-btn" id="themeToggle" aria-label="Thème"></button>
+                <a class="nav-icon-btn" href="favorites.html" aria-label="Favoris">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-4.35-9.5-9C1 8.5 3 5 6.5 5c2 0 3.5 1 5.5 3 2-2 3.5-3 5.5-3C21 5 23 8.5 21.5 12 19 16.65 12 21 12 21z"/></svg>
+                    <span id="favCount" class="nav-badge" style="display: none;">0</span>
                 </a>
-                <a href="favorites.html" class="nav-btn" style="text-decoration: none;">
-                    ❤️ Favoris <span id="favCount" class="badge">0</span>
-                </a>
-                <button id="authBtn" class="nav-btn auth-btn">Se connecter</button>
+                <button id="authBtn"><span class="nav-user-pseudo">Se connecter</span></button>
             </div>
         </div>
+        <div class="divider"></div>
     </nav>
 
-    <!-- Hero Section -->
-    <section class="hero">
-        <div class="container">
-            <h2 class="hero-title">Découvrez l'univers des Animes</h2>
-            <p class="hero-subtitle">Des milliers d'animes à explorer</p>
-        </div>
-    </section>
-
-    <!-- Main Content -->
-    <main class="container">
-        <!-- Filtres -->
-        <div class="filters-container">
-            <div class="filters-row">
-                <!-- Type Filter Dropdown -->
-                <div class="filter-dropdown">
-                    <button class="filter-dropdown-btn" id="typeDropdownBtn">
-                        <span class="dropdown-icon">📺</span>
-                        <span class="dropdown-text">Type: <span id="selectedType">Tous</span></span>
-                        <span class="dropdown-arrow">▼</span>
-                    </button>
-                    <div class="filter-dropdown-menu" id="typeDropdownMenu">
-                        <div class="dropdown-option active" data-type="">✓ Tous</div>
-                        <div class="dropdown-option" data-type="tv">📺 Anime TV</div>
-                        <div class="dropdown-option" data-type="movie">🎬 Film</div>
-                        <div class="dropdown-option" data-type="ova">📀 OVA</div>
-                        <div class="dropdown-option" data-type="special">⭐ Special</div>
-                    </div>
+    <div class="index-root">
+        <!-- Hero -->
+        <section class="hero">
+            <div class="hero-bg">
+                <div class="hero-stripes"></div>
+                <div class="hero-tape">
+                    <span>FAVANIM № 47 · LE GRAND CATALOGUE · PRINTEMPS 2026 · FAVANIM № 47 · LE GRAND CATALOGUE · PRINTEMPS 2026 ·&nbsp;</span>
+                    <span>FAVANIM № 47 · LE GRAND CATALOGUE · PRINTEMPS 2026 · FAVANIM № 47 · LE GRAND CATALOGUE · PRINTEMPS 2026 ·&nbsp;</span>
                 </div>
-                
-                <!-- Genre Filter Dropdown -->
-                <div class="filter-dropdown">
-                    <button class="filter-dropdown-btn" id="genreDropdownBtn">
-                        <span class="dropdown-icon">🎭</span>
-                        <span class="dropdown-text">Genres: <span id="selectedGenres">Tous</span></span>
-                        <span class="dropdown-arrow">▼</span>
-                    </button>
-                    <div class="filter-dropdown-menu scrollable" id="genreDropdownMenu">
-                        <div class="dropdown-search">
-                            <input type="text" placeholder="🔍 Rechercher un genre..." id="genreSearch">
-                        </div>
-                        <div id="genreOptions">
-                            <div class="spinner-small"></div>
-                            <p style="color: var(--text-secondary); font-size: 0.9rem; padding: 1rem;">Chargement...</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="search-container">
-                    <input type="text" id="searchInput" placeholder="🔍 Rechercher un anime..." class="search-input">
-                </div>
-                <!-- Reset Button -->
-                <button id="resetFiltersBtn" class="btn-reset-filters">
-                    🔄 
-                </button>
             </div>
-        </div>
-        
-        <!-- Loading Spinner -->
-        <div id="loading" class="loading">
-            <div class="spinner"></div>
-            <p>Chargement des animes...</p>
-        </div>
 
-        <!-- Error Message -->
-        <div id="errorMessage" class="error-message" style="display: none;">
-            <p>Une erreur s'est produite. Veuillez réessayer.</p>
-        </div>
+            <div class="hero-grid">
+                <div class="hero-text">
+                    <div class="hero-eyebrow">
+                        <span class="t-mono">— Issue №47 / Printemps 2026</span>
+                        <span class="hero-eyebrow-dot"></span>
+                        <span class="t-mono">Mis à jour aujourd'hui</span>
+                    </div>
+                    <h1 class="hero-title t-display">
+                        PARTAGEZ<br>
+                        VOS ANIMES<br>
+                        <em>préférés.</em>
+                    </h1>
+                    <p class="hero-lead">
+                        Une revue vivante de la communauté. Notez. Commentez. Gardez la trace de tout ce que vous regardez.
+                    </p>
 
-        <!-- Anime Grid -->
-        <div id="animeGrid" class="anime-grid"></div>
+                    <div class="hero-counters">
+                        <div class="counter">
+                            <div class="counter-num t-display" id="counterAnimes">28 492</div>
+                            <div class="counter-label t-mono">animes</div>
+                        </div>
+                        <div class="counter-sep"></div>
+                        <div class="counter">
+                            <div class="counter-num t-display" id="counterFavs">0</div>
+                            <div class="counter-label t-mono">mes favoris</div>
+                        </div>
+                        <div class="counter-sep"></div>
+                        <div class="counter">
+                            <div class="counter-num t-display">№47</div>
+                            <div class="counter-label t-mono">édition</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="hero-feature">
+                    <div class="hero-feature-frame">
+                        <div class="hero-feature-bg" id="heroFeatureBg" style="background: linear-gradient(180deg, #E63946 0%, #8B0000 100%)">
+                            <div class="hero-feature-jp t-jp">推</div>
+                            <div class="hero-feature-grain"></div>
+                        </div>
+                        <div class="hero-feature-meta">
+                            <span class="t-mono">À LA UNE</span>
+                            <span class="t-mono">►</span>
+                        </div>
+                        <div class="hero-feature-card" id="heroFeatureCard">
+                            <div class="hero-feature-num t-display">01</div>
+                            <div class="hero-feature-info">
+                                <div class="t-eyebrow">Top classement</div>
+                                <div class="hero-feature-title t-display" id="heroFeatureTitle">—</div>
+                                <div class="hero-feature-sub" id="heroFeatureSub">Chargement…</div>
+                            </div>
+                            <button class="btn-icon hero-play" aria-label="Voir la fiche">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4l14 8-14 8z"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="divider"></div>
+
+        <!-- Filtres -->
+        <section class="filters">
+            <div class="container-wide">
+                <div class="filters-head">
+                    <div>
+                        <div class="t-eyebrow">— Section 02</div>
+                        <h2 class="filters-title t-display">LE CATALOGUE</h2>
+                    </div>
+                    <div class="filters-search">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                        <input class="filters-search-input" type="text" id="searchInput" placeholder="Chercher un titre…">
+                    </div>
+                </div>
+
+                <div class="filters-row">
+                    <span class="t-eyebrow">Type</span>
+                    <div class="chips" id="typeChips">
+                        <button class="chip active" data-type="">Tous</button>
+                        <button class="chip" data-type="tv">TV</button>
+                        <button class="chip" data-type="movie">Film</button>
+                        <button class="chip" data-type="ova">OVA</button>
+                        <button class="chip" data-type="special">Special</button>
+                    </div>
+                </div>
+
+                <div class="filters-row">
+                    <span class="t-eyebrow">Genres</span>
+                    <div class="chips" id="genreChips">
+                        <span class="spinner-small"></span>
+                    </div>
+                </div>
+
+                <div class="filters-meta">
+                    <span class="t-mono" id="resultsCount">— résultats</span>
+                    <div class="filters-sort">
+                        <span class="t-mono">Tri ↓</span>
+                        <select class="filters-sort-select" id="sortSelect">
+                            <option value="">Top</option>
+                            <option value="score">Score</option>
+                            <option value="start_date">Récent</option>
+                            <option value="popularity">Popularité</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Grille -->
+        <section class="grid-wrap">
+            <div class="container-wide">
+                <!-- Loading -->
+                <div id="loading" class="loading">
+                    <div class="spinner"></div>
+                    <p>Chargement des animes…</p>
+                </div>
+
+                <!-- Erreur -->
+                <div id="errorMessage" class="error-message" style="display: none;">
+                    <p>Une erreur s'est produite. Veuillez réessayer.</p>
+                </div>
+
+                <div id="animeGrid" class="grid"></div>
+            </div>
+        </section>
 
         <!-- Pagination -->
-        <div id="pagination" class="pagination">
-            <button id="prevBtn" class="pagination-btn" disabled>← Précédent</button>
-            <div id="pageNumbers" class="page-numbers"></div>
-            <button id="nextBtn" class="pagination-btn">Suivant →</button>
+        <div class="container-wide">
+            <div id="pagination" class="pagination">
+                <button id="prevBtn" class="pagination-btn" disabled>← Précédent</button>
+                <div id="pageNumbers" class="page-numbers"></div>
+                <button id="nextBtn" class="pagination-btn">Suivant →</button>
+            </div>
         </div>
-    </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="container-wide footer-inner">
+                <div class="footer-brand t-display">FAVANIM</div>
+                <div class="footer-cols">
+                    <div class="footer-col">
+                        <div class="t-eyebrow">Catalogue</div>
+                        <a href="index.html">Top animes</a>
+                        <a href="quick-rate.html">Notation rapide</a>
+                        <a href="favorites.html">Mes favoris</a>
+                    </div>
+                    <div class="footer-col">
+                        <div class="t-eyebrow">Compte</div>
+                        <a href="profile.html">Mon profil</a>
+                        <a href="favorites.html">Ma collection</a>
+                    </div>
+                    <div class="footer-col">
+                        <div class="t-eyebrow">Données</div>
+                        <a href="https://jikan.moe" target="_blank" rel="noopener">Jikan API</a>
+                        <a href="https://myanimelist.net" target="_blank" rel="noopener">MyAnimeList</a>
+                        <a href="https://firebase.google.com" target="_blank" rel="noopener">Firebase</a>
+                    </div>
+                </div>
+                <div class="footer-copy t-mono">
+                    № 47 · 2026 · Made in 🇫🇷 · Pas affilié à MAL
+                </div>
+            </div>
+        </footer>
+    </div>
 
     <!-- Modal Login/Register -->
     <div id="authModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-box auth-box">
             <span class="close">&times;</span>
-            <div class="auth-container">
-                <!-- Login Form -->
-                <div id="loginForm" class="auth-form active">
-                    <h2>Connexion</h2>
-                    <form id="loginFormElement">
-                        <div class="form-group">
-                            <label for="loginEmail">Email</label>
-                            <input type="email" id="loginEmail" required placeholder="votre@email.com">
-                        </div>
-                        <div class="form-group">
-                            <label for="loginPassword">Mot de passe</label>
-                            <input type="password" id="loginPassword" required placeholder="••••••••">
-                        </div>
-                        <button type="submit" class="btn-primary">Se connecter</button>
-                    </form>
-                    <p class="auth-switch">
-                        Pas encore de compte ? 
-                        <a href="#" id="showRegister">S'inscrire</a>
-                    </p>
-                </div>
+            <div class="auth-panel-tabs">
+                <button type="button" class="auth-tab active" id="showLogin">
+                    <span class="auth-tab-num">01</span>
+                    <span>Connexion</span>
+                </button>
+                <button type="button" class="auth-tab" id="showRegister">
+                    <span class="auth-tab-num">02</span>
+                    <span>Inscription</span>
+                </button>
+            </div>
 
-                <!-- Register Form -->
-                <div id="registerForm" class="auth-form">
-                    <h2>Inscription</h2>
-                    <form id="registerFormElement">
-                        <div class="form-group">
-                            <label for="registerUsername">Nom d'utilisateur</label>
-                            <input type="text" id="registerUsername" required placeholder="Votre pseudo">
-                        </div>
-                        <div class="form-group">
-                            <label for="registerEmail">Email</label>
-                            <input type="email" id="registerEmail" required placeholder="votre@email.com">
-                        </div>
-                        <div class="form-group">
-                            <label for="registerPassword">Mot de passe</label>
-                            <input type="password" id="registerPassword" required placeholder="••••••••">
-                        </div>
-                        <div class="form-group">
-                            <label for="registerPasswordConfirm">Confirmer le mot de passe</label>
-                            <input type="password" id="registerPasswordConfirm" required placeholder="••••••••">
-                        </div>
-                        <button type="submit" class="btn-primary">S'inscrire</button>
-                    </form>
-                    <p class="auth-switch">
-                        Déjà un compte ? 
-                        <a href="#" id="showLogin">Se connecter</a>
-                    </p>
-                </div>
+            <!-- Login Form -->
+            <div id="loginForm" class="auth-form active">
+                <form id="loginFormElement">
+                    <label class="auth-field">
+                        <span class="auth-label">Email</span>
+                        <input class="input" type="email" id="loginEmail" required placeholder="toi@email.com">
+                    </label>
+                    <label class="auth-field">
+                        <span class="auth-label">Mot de passe</span>
+                        <input class="input" type="password" id="loginPassword" required placeholder="••••••••">
+                    </label>
+                    <button type="submit" class="btn btn-primary auth-submit">Entrer →</button>
+                </form>
+            </div>
+
+            <!-- Register Form -->
+            <div id="registerForm" class="auth-form">
+                <form id="registerFormElement">
+                    <label class="auth-field">
+                        <span class="auth-label">Pseudo</span>
+                        <input class="input" type="text" id="registerUsername" required placeholder="@yumeno">
+                    </label>
+                    <label class="auth-field">
+                        <span class="auth-label">Email</span>
+                        <input class="input" type="email" id="registerEmail" required placeholder="toi@email.com">
+                    </label>
+                    <label class="auth-field">
+                        <span class="auth-label">Mot de passe</span>
+                        <input class="input" type="password" id="registerPassword" required placeholder="••••••••">
+                    </label>
+                    <label class="auth-field">
+                        <span class="auth-label">Confirmer le mot de passe</span>
+                        <input class="input" type="password" id="registerPasswordConfirm" required placeholder="••••••••">
+                    </label>
+                    <button type="submit" class="btn btn-primary auth-submit">Créer mon compte →</button>
+                </form>
+            </div>
+
+            <div class="auth-panel-foot">
+                <span class="t-mono">№ 001/A</span>
+                <span class="t-mono">Authentifié · Firebase</span>
             </div>
         </div>
     </div>
 
     <!-- Modal Ajout aux favoris -->
     <div id="addToFavoritesModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-box">
             <span class="close">&times;</span>
-            <h2 style="text-align: center; background: var(--gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 2rem;">
-                Ajouter aux favoris
-            </h2>
-            <div id="addToFavoritesContent"></div>
+            <div class="modal-body">
+                <div class="t-eyebrow">— Ma collection</div>
+                <h2 class="modal-heading t-display">Ajouter aux favoris</h2>
+                <div id="addToFavoritesContent"></div>
+            </div>
         </div>
     </div>
 
-    <!-- Modal Détails Anime -->
-    <div id="animeDetailModal" class="modal">
-        <div class="modal-content modal-large">
-            <span class="close">&times;</span>
-            <div id="animeDetail"></div>
-        </div>
-    </div>
+    <div class="grain-overlay"></div>
 
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-    
+
     <!-- Configuration et Scripts -->
-    <script src="firebase-config.js?v=35"></script>
-    <script src="auth-firebase.js?v=35"></script>
-    <script src="star-rating.js?v=35"></script>
-    <script src="app.js?v=35"></script>
+    <script src="firebase-config.js?v=36"></script>
+    <script src="auth-firebase.js?v=36"></script>
+    <script src="star-rating.js?v=36"></script>
+    <script src="app.js?v=36"></script>
 </body>
 </html>

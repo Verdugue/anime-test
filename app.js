@@ -9,6 +9,7 @@ let currentSearch = '';
 let isLoading = false;
 let currentType = '';
 let currentGenres = [];
+let currentSort = '';
 
 // Éléments DOM
 const animeGrid = document.getElementById('animeGrid');
@@ -18,18 +19,25 @@ const prevBtn = document.getElementById('prevBtn');
 const nextBtn = document.getElementById('nextBtn');
 const pageNumbers = document.getElementById('pageNumbers');
 const searchInput = document.getElementById('searchInput');
-const animeDetailModal = document.getElementById('animeDetailModal');
 const addToFavoritesModal = document.getElementById('addToFavoritesModal');
+const resultsCount = document.getElementById('resultsCount');
+const sortSelect = document.getElementById('sortSelect');
+
+// Animes de la page courante (pour le bouton favori des cartes)
+const animeById = new Map();
 
 // Variable pour stocker l'anime en cours
 let currentAnimeForFavorite = null;
+
+// Anime mis en avant dans le hero
+let featuredAnime = null;
 
 // ===== Fonctions API =====
 
 // Récupérer les animes (top animes ou recherche)
 async function fetchAnimes(page = 1, searchQuery = '', type = '', genres = []) {
     if (isLoading) return;
-    
+
     isLoading = true;
     showLoading();
     hideError();
@@ -39,45 +47,62 @@ async function fetchAnimes(page = 1, searchQuery = '', type = '', genres = []) {
         const params = new URLSearchParams();
         params.append('page', page);
         params.append('limit', ITEMS_PER_PAGE);
-        
+
         if (searchQuery) {
             params.append('q', searchQuery);
-            params.append('order_by', 'popularity');
         }
-        
+
         if (type) {
             params.append('type', type);
         }
-        
+
         if (genres.length > 0) {
             params.append('genres', genres.join(','));
         }
-        
-        if (searchQuery || type || genres.length > 0) {
+
+        const hasFilters = searchQuery || type || genres.length > 0 || currentSort;
+
+        if (hasFilters) {
+            if (currentSort) {
+                params.append('order_by', currentSort);
+                params.append('sort', currentSort === 'start_date' ? 'desc' : (currentSort === 'popularity' ? 'asc' : 'desc'));
+            } else if (searchQuery) {
+                params.append('order_by', 'popularity');
+            }
             url = `${JIKAN_API_BASE}/anime?${params.toString()}`;
         } else {
             url = `${JIKAN_API_BASE}/top/anime?${params.toString()}`;
         }
 
         const response = await fetch(url);
-        
+
         if (!response.ok) {
             throw new Error('Erreur lors de la récupération des données');
         }
 
         const data = await response.json();
-        
+
         // Mise à jour de l'état
         currentPage = page;
         totalPages = data.pagination.last_visible_page || 1;
-        
+
+        // Compteurs éditoriaux
+        updateResultsCount(data.pagination);
+
+        // Carte "À la une" : premier anime du top (page 1, sans filtre)
+        if (!hasFilters && page === 1 && data.data.length > 0) {
+            setHeroFeature(data.data[0]);
+        }
+
         // Afficher les animes
         displayAnimes(data.data);
         updatePagination();
-        
-        // Scroll vers le haut
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-        
+
+        // Scroll vers le haut de la grille (sauf au premier chargement)
+        if (page !== 1 || hasFilters) {
+            document.querySelector('.filters')?.scrollIntoView({ behavior: 'smooth' });
+        }
+
     } catch (error) {
         console.error('Erreur:', error);
         showError();
@@ -87,54 +112,93 @@ async function fetchAnimes(page = 1, searchQuery = '', type = '', genres = []) {
     }
 }
 
-// Récupérer les détails d'un anime
-async function fetchAnimeDetails(animeId) {
-    try {
-        showLoading();
-        const response = await fetch(`${JIKAN_API_BASE}/anime/${animeId}/full`);
-        
-        if (!response.ok) {
-            throw new Error('Erreur lors de la récupération des détails');
-        }
-
-        const data = await response.json();
-        await displayAnimeDetails(data.data);
-        openModal(animeDetailModal);
-        
-    } catch (error) {
-        console.error('Erreur:', error);
-        showNotification('Impossible de charger les détails de l\'anime', 'error');
-    } finally {
-        hideLoading();
-    }
+// Ouvrir la page dédiée d'un anime
+function openAnimePage(animeId) {
+    window.location.href = `anime.html?id=${animeId}`;
 }
 
 // ===== Fonctions d'affichage =====
 
-// Créer une carte d'anime
-function createAnimeCard(anime) {
-    const score = anime.score || 'N/A';
+// Compteur de résultats + compteur hero
+function updateResultsCount(pagination) {
+    const total = pagination?.items?.total;
+    if (resultsCount) {
+        resultsCount.textContent = total != null
+            ? `${total.toLocaleString('fr-FR')} résultat${total > 1 ? 's' : ''}`
+            : '— résultats';
+    }
+    const counterAnimes = document.getElementById('counterAnimes');
+    if (counterAnimes && total != null && total > 0) {
+        counterAnimes.textContent = total.toLocaleString('fr-FR');
+    }
+}
+
+// Carte "À la une" dans le hero
+function setHeroFeature(anime) {
+    featuredAnime = anime;
+    const title = anime.title || anime.title_english || 'Sans titre';
+    const studio = anime.studios?.[0]?.name || anime.type || '—';
+    const eps = anime.episodes ? `${anime.episodes} ép.` : 'En cours';
+    const score = anime.score != null ? anime.score.toFixed(1) : '—';
+
+    const titleEl = document.getElementById('heroFeatureTitle');
+    const subEl = document.getElementById('heroFeatureSub');
+    if (titleEl) titleEl.textContent = title;
+    if (subEl) subEl.textContent = `${score} · ${studio} · ${eps}`;
+
+    const bg = document.getElementById('heroFeatureBg');
+    const imageUrl = anime.images?.jpg?.large_image_url || anime.images?.jpg?.image_url || '';
+    if (bg && imageUrl && !bg.querySelector('img')) {
+        const img = document.createElement('img');
+        img.src = imageUrl;
+        img.alt = '';
+        bg.insertBefore(img, bg.querySelector('.hero-feature-grain'));
+    }
+}
+
+// Créer une carte d'anime (style éditorial)
+function createAnimeCard(anime, idx) {
+    const score = anime.score != null ? anime.score.toFixed(1) : 'N/A';
     const imageUrl = anime.images?.jpg?.large_image_url || anime.images?.jpg?.image_url || '';
     const title = anime.title || anime.title_english || 'Sans titre';
+    const titleJp = anime.title_japanese || '';
     const type = anime.type || 'TV';
-    const episodes = anime.episodes ? `${anime.episodes} ep` : 'En cours';
+    const episodes = anime.episodes ? `${anime.episodes} ép.` : 'En cours';
+    const year = anime.year || anime.aired?.prop?.from?.year || '—';
+    const genres = (anime.genres || []).slice(0, 2);
+    const num = String((currentPage - 1) * ITEMS_PER_PAGE + idx + 1).padStart(3, '0');
 
     return `
-        <div class="anime-card" data-anime-id="${anime.mal_id}">
-            <img src="${imageUrl}" 
-                 alt="${title}" 
-                 class="anime-card-image"
-                 onerror="this.src='https://via.placeholder.com/250x350?text=No+Image'">
-            <div class="anime-card-content">
-                <h3 class="anime-card-title">${title}</h3>
-                <div class="anime-card-info">
-                    <span>${type} • ${episodes}</span>
-                    <span class="anime-card-score">
-                        ⭐ ${score}
-                    </span>
+        <article class="card" data-anime-id="${anime.mal_id}">
+            <div class="card-media">
+                <img src="${imageUrl}" alt="${title}" loading="lazy"
+                     onerror="this.style.display='none'">
+                <div class="card-num t-mono">№ ${num}</div>
+                <button class="card-fav" data-fav-id="${anime.mal_id}" aria-label="Ajouter aux favoris">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-4.35-9.5-9C1 8.5 3 5 6.5 5c2 0 3.5 1 5.5 3 2-2 3.5-3 5.5-3C21 5 23 8.5 21.5 12 19 16.65 12 21 12 21z"/></svg>
+                </button>
+                <div class="card-overlay">
+                    <span class="tag accent">${type}</span>
+                    <span class="card-eps t-mono">${episodes}</span>
                 </div>
             </div>
-        </div>
+            <div class="card-body">
+                <div class="card-meta-row">
+                    <span class="t-mono card-year">${year}</span>
+                    <span class="card-score">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3 7 7.5.5-5.7 5 1.7 7.5L12 18l-6.5 4 1.7-7.5L1.5 9.5 9 9z"/></svg>
+                        <span>${score}</span>
+                    </span>
+                </div>
+                <h3 class="card-title">${title}</h3>
+                ${titleJp ? `<div class="card-jp t-jp">${titleJp}</div>` : ''}
+                ${genres.length > 0 ? `
+                    <div class="card-genres">
+                        ${genres.map(g => `<span class="card-genre">${g.name}</span>`).join('')}
+                    </div>
+                ` : ''}
+            </div>
+        </article>
     `;
 }
 
@@ -143,118 +207,54 @@ async function displayAnimes(animes) {
     // Filtrer les animes déjà en favoris si l'utilisateur est connecté
     let filteredAnimes = animes;
     if (authManager.isLoggedIn()) {
-        // Récupérer la liste des favoris
         const favorites = await authManager.getFavorites();
         const favoriteIds = favorites.map(fav => fav.mal_id);
         filteredAnimes = animes.filter(anime => !favoriteIds.includes(anime.mal_id));
     }
-    
+
+    animeById.clear();
+    filteredAnimes.forEach(a => animeById.set(a.mal_id, a));
+
     if (filteredAnimes.length === 0) {
         animeGrid.innerHTML = `
-            <div class="empty-state" style="grid-column: 1/-1;">
-                <p>✨ Tous ces animes sont déjà dans vos favoris !</p>
-                <p>Passez à la page suivante ou utilisez la recherche pour découvrir de nouveaux animes.</p>
+            <div class="empty" style="grid-column: 1/-1; background: var(--bg);">
+                <div class="t-display empty-num">00</div>
+                <p>Tous ces animes sont déjà dans vos favoris.</p>
+                <p class="empty-hint t-mono">Passez à la page suivante ou cherchez un titre</p>
             </div>
         `;
         return;
     }
 
-    animeGrid.innerHTML = filteredAnimes.map(anime => createAnimeCard(anime)).join('');
-    
-    // Ajouter les événements de clic pour les détails
-    document.querySelectorAll('.anime-card').forEach(card => {
+    animeGrid.innerHTML = filteredAnimes.map((anime, idx) => createAnimeCard(anime, idx)).join('');
+
+    // Clic sur une carte → page dédiée
+    document.querySelectorAll('.card[data-anime-id]').forEach(card => {
         card.addEventListener('click', () => {
-            const animeId = card.dataset.animeId;
-            fetchAnimeDetails(animeId);
+            openAnimePage(card.dataset.animeId);
+        });
+    });
+
+    // Clic sur le cœur → ajout aux favoris
+    document.querySelectorAll('.card-fav').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            handleCardFav(Number(btn.dataset.favId));
         });
     });
 }
 
-// Afficher les détails d'un anime
-async function displayAnimeDetails(anime) {
-    const isFav = await authManager.isFavorite(anime.mal_id);
-    const imageUrl = anime.images?.jpg?.large_image_url || anime.images?.jpg?.image_url || '';
-    const title = anime.title || 'Sans titre';
-    const titleEnglish = anime.title_english || '';
-    const titleJapanese = anime.title_japanese || '';
-    const score = anime.score || 'N/A';
-    const rank = anime.rank || 'N/A';
-    const popularity = anime.popularity || 'N/A';
-    const episodes = anime.episodes || 'N/A';
-    const status = anime.status || 'N/A';
-    const aired = anime.aired?.string || 'N/A';
-    const duration = anime.duration || 'N/A';
-    const synopsis = anime.synopsis || 'Pas de synopsis disponible.';
-    const genres = anime.genres || [];
-    const studios = anime.studios || [];
-    const source = anime.source || 'N/A';
-    const rating = anime.rating || 'N/A';
-
-    // Stocker l'anime actuel
+// Cœur d'une carte : ouvre la modale de notation (ou la connexion)
+function handleCardFav(animeId) {
+    if (!authManager.isLoggedIn()) {
+        openModal(document.getElementById('authModal'));
+        showNotification('Connectez-vous pour ajouter des favoris', 'info');
+        return;
+    }
+    const anime = animeById.get(animeId);
+    if (!anime) return;
     currentAnimeForFavorite = anime;
-
-    const detailHTML = `
-        <div class="anime-detail-container">
-            <div>
-                <img src="${imageUrl}" alt="${title}" class="anime-detail-image">
-                <button class="favorite-btn ${isFav ? 'active' : ''}" 
-                        style="position: static; margin-top: 1rem; width: 100%; border-radius: 25px; height: auto; padding: 1rem;"
-                        onclick="toggleFavoriteFromDetail(${anime.mal_id})">
-                    ${isFav ? '❤️ Retirer des favoris' : '🤍 Ajouter aux favoris'}
-                </button>
-            </div>
-            <div class="anime-detail-info">
-                <h2>${title}</h2>
-                ${titleEnglish ? `<p style="color: var(--text-secondary); margin-bottom: 0.5rem;">${titleEnglish}</p>` : ''}
-                ${titleJapanese ? `<p style="color: var(--text-secondary); margin-bottom: 1rem;">${titleJapanese}</p>` : ''}
-                
-                <div class="anime-detail-meta">
-                    <span class="meta-badge">⭐ Score: ${score}</span>
-                    <span class="meta-badge">🏆 Rang: #${rank}</span>
-                    <span class="meta-badge">👥 Popularité: #${popularity}</span>
-                </div>
-
-                <div style="margin-top: 1.5rem;">
-                    <p><strong>Type:</strong> ${anime.type || 'N/A'}</p>
-                    <p><strong>Épisodes:</strong> ${episodes}</p>
-                    <p><strong>Statut:</strong> ${status}</p>
-                    <p><strong>Diffusion:</strong> ${aired}</p>
-                    <p><strong>Durée:</strong> ${duration}</p>
-                    <p><strong>Source:</strong> ${source}</p>
-                    <p><strong>Classification:</strong> ${rating}</p>
-                    ${studios.length > 0 ? `<p><strong>Studios:</strong> ${studios.map(s => s.name).join(', ')}</p>` : ''}
-                </div>
-
-                ${genres.length > 0 ? `
-                    <div class="genre-tags">
-                        ${genres.map(genre => `<span class="genre-tag">${genre.name}</span>`).join('')}
-                    </div>
-                ` : ''}
-
-                <div class="anime-detail-synopsis">
-                    <h3 style="margin-bottom: 1rem; color: var(--text-primary);">Synopsis</h3>
-                    <p>${synopsis}</p>
-                </div>
-
-                ${anime.trailer?.embed_url ? `
-                    <div style="margin-top: 2rem;">
-                        <h3 style="margin-bottom: 1rem; color: var(--text-primary);">Bande-annonce</h3>
-                        <iframe 
-                            width="100%" 
-                            height="315" 
-                            src="${anime.trailer.embed_url}${anime.trailer.embed_url.includes('?') ? '&' : '?'}autoplay=0" 
-                            frameborder="0" 
-                            allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                            allowfullscreen
-                            style="border-radius: 15px;">
-                        </iframe>
-                    </div>
-                ` : ''}
-            </div>
-        </div>
-    `;
-
-    document.getElementById('animeDetail').innerHTML = detailHTML;
+    openAddToFavoritesModal(anime);
 }
 
 // ===== Gestion de la pagination =====
@@ -280,14 +280,14 @@ function updatePagination() {
     if (startPage > 1) {
         pagesHTML += `<button class="page-number" onclick="goToPage(1)">1</button>`;
         if (startPage > 2) {
-            pagesHTML += `<span style="padding: 0.8rem; color: var(--text-secondary);">...</span>`;
+            pagesHTML += `<span class="page-ellipsis">…</span>`;
         }
     }
 
     // Pages visibles
     for (let i = startPage; i <= endPage; i++) {
         pagesHTML += `
-            <button class="page-number ${i === currentPage ? 'active' : ''}" 
+            <button class="page-number ${i === currentPage ? 'active' : ''}"
                     onclick="goToPage(${i})">
                 ${i}
             </button>
@@ -297,7 +297,7 @@ function updatePagination() {
     // Dernière page
     if (endPage < totalPages) {
         if (endPage < totalPages - 1) {
-            pagesHTML += `<span style="padding: 0.8rem; color: var(--text-secondary);">...</span>`;
+            pagesHTML += `<span class="page-ellipsis">…</span>`;
         }
         pagesHTML += `<button class="page-number" onclick="goToPage(${totalPages})">${totalPages}</button>`;
     }
@@ -312,76 +312,46 @@ function goToPage(page) {
 
 // ===== Gestion des favoris =====
 
-async function toggleFavoriteFromDetail(animeId) {
-    if (!authManager.isLoggedIn()) {
-        openModal(document.getElementById('authModal'));
-        showNotification('Connectez-vous pour ajouter des favoris', 'info');
-        return;
-    }
-
-    const isFav = await authManager.isFavorite(animeId);
-    
-    if (isFav) {
-        // Retirer des favoris
-        if (confirm('Voulez-vous retirer cet anime de vos favoris ?')) {
-            await authManager.removeFavorite(animeId);
-            showNotification('Retiré des favoris', 'info');
-            await updateFavoritesCount();
-            updateFavoriteButtons();
-            closeModal(animeDetailModal);
-        }
-    } else {
-        // Ouvrir la modale de notation
-        openAddToFavoritesModal(currentAnimeForFavorite);
-    }
-}
-
 // Ouvrir la modale d'ajout aux favoris
 let starRatingAddInstance = null;
 
 function openAddToFavoritesModal(anime) {
     if (!anime) return;
-    
+
     const modalContent = document.getElementById('addToFavoritesContent');
     modalContent.innerHTML = `
-        <div class="edit-favorite-form">
-            <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem; align-items: center;">
-                <img src="${anime.images?.jpg?.large_image_url || anime.images?.jpg?.image_url || ''}" 
-                     alt="${anime.title}" 
-                     style="width: 80px; height: 120px; object-fit: cover; border-radius: 10px;">
+        <div class="rate-form">
+            <div class="rate-form-anime">
+                <img src="${anime.images?.jpg?.large_image_url || anime.images?.jpg?.image_url || ''}"
+                     alt="${anime.title}">
                 <div>
-                    <h3 style="color: var(--text-primary); margin-bottom: 0.5rem;">${anime.title}</h3>
-                    <p style="color: var(--text-secondary); font-size: 0.9rem;">
-                        ${anime.type || 'TV'} • ${anime.episodes || '?'} épisodes
-                    </p>
+                    <div class="rate-form-anime-title">${anime.title}</div>
+                    <div class="rate-form-anime-sub">${anime.type || 'TV'} · ${anime.episodes || '?'} épisodes</div>
                 </div>
             </div>
-            
-            <div class="star-rating-input">
-                <label>Votre note: <span style="color: var(--primary-pink);">*</span></label>
-                <div class="stars-input" id="starsInput"></div>
-                <div style="color: var(--text-secondary); margin-top: 0.5rem; font-size: 0.95rem;">
-                    Note sélectionnée: <span id="selectedRatingAdd" style="font-weight: 700; color: var(--primary-pink);">0</span>/5
-                </div>
+
+            <div>
+                <div class="t-eyebrow">Ta note *</div>
+                <div class="stars-input" id="starsInput" style="margin-top: 10px;"></div>
+                <div class="rate-value t-mono">Note sélectionnée : <strong id="selectedRatingAdd">0</strong>/5</div>
             </div>
-            
-            <div class="comment-input">
-                <label>Votre commentaire: <span style="color: var(--text-secondary); font-weight: 400;">(optionnel)</span></label>
-                <textarea id="commentTextareaAdd" placeholder="Partagez votre avis sur cet anime..."></textarea>
+
+            <div>
+                <div class="t-eyebrow" style="margin-bottom: 8px;">Ton avis (optionnel)</div>
+                <textarea id="commentTextareaAdd" class="input-area" placeholder="Partagez votre avis sur cet anime…"></textarea>
             </div>
-            
-            <button class="btn-primary" onclick="confirmAddToFavorites()">
-                ❤️ Ajouter à mes favoris
+
+            <button class="btn btn-primary" onclick="confirmAddToFavorites()">
+                ♥ Ajouter à mes favoris
             </button>
         </div>
     `;
-    
-    closeModal(animeDetailModal);
+
     openModal(addToFavoritesModal);
-    
+
     // Réinitialiser la note
     selectedRatingForAddValue = 0;
-    
+
     // Initialiser le système d'étoiles
     starRatingAddInstance = createStarRating('starsInput', 0, (rating) => {
         document.getElementById('selectedRatingAdd').textContent = rating;
@@ -398,21 +368,21 @@ async function confirmAddToFavorites() {
         showNotification('Veuillez sélectionner une note', 'error');
         return;
     }
-    
+
     const comment = document.getElementById('commentTextareaAdd').value.trim();
-    
+
     if (!currentAnimeForFavorite) {
         showNotification('Erreur: anime non trouvé', 'error');
         return;
     }
-    
+
     try {
         await authManager.addFavorite(currentAnimeForFavorite, selectedRatingForAddValue, comment);
         closeModal(addToFavoritesModal);
-        showNotification('Ajouté aux favoris avec succès ! ❤️', 'success');
+        showNotification('Ajouté aux favoris ♥', 'success');
         await updateFavoritesCount();
         updateFavoriteButtons();
-        
+
         // Réinitialiser
         selectedRatingForAddValue = 0;
     } catch (error) {
@@ -432,6 +402,7 @@ function performSearch() {
     currentSearch = query;
     currentPage = 1;
     fetchAnimes(currentPage, currentSearch, currentType, currentGenres);
+    updateResetVisibility();
 }
 
 // ===== Utilitaires =====
@@ -477,211 +448,126 @@ searchInput.addEventListener('keypress', (e) => {
     }
 });
 
-// ===== Gestion des filtres =====
+// Tri
+sortSelect.addEventListener('change', () => {
+    currentSort = sortSelect.value;
+    currentPage = 1;
+    fetchAnimes(currentPage, currentSearch, currentType, currentGenres);
+    updateResetVisibility();
+});
 
-// Charger les genres depuis l'API
-async function loadGenres() {
-    try {
-        const response = await fetch(`${JIKAN_API_BASE}/genres/anime`);
-        const data = await response.json();
-        
-        const genreOptionsContainer = document.getElementById('genreOptions');
-        genreOptionsContainer.innerHTML = '';
-        
-        // Stocker tous les genres pour la recherche
-        window.allGenres = data.data;
-        
-        // Ajouter "Tous"
-        const allOption = document.createElement('div');
-        allOption.className = 'dropdown-option active';
-        allOption.textContent = '✓ Tous';
-        allOption.dataset.genreId = '';
-        genreOptionsContainer.appendChild(allOption);
-        
-        // Ajouter les genres
-        data.data.forEach(genre => {
-            const option = document.createElement('div');
-            option.className = 'dropdown-option';
-            option.textContent = genre.name;
-            option.dataset.genreId = genre.mal_id;
-            option.dataset.genreName = genre.name;
-            genreOptionsContainer.appendChild(option);
-        });
-        
-        // Setup les événements
-        setupGenreDropdown();
-    } catch (error) {
-        console.error('Erreur lors du chargement des genres:', error);
-        document.getElementById('genreOptions').innerHTML = '<p style="color: var(--text-secondary); padding: 1rem;">Erreur de chargement</p>';
-    }
+// ===== Gestion des filtres (chips) =====
+
+// Bouton de réinitialisation (apparaît dans la rangée Genres)
+let resetChip = null;
+
+function updateResetVisibility() {
+    if (!resetChip) return;
+    const hasFilters = currentSearch || currentType || currentGenres.length > 0 || currentSort;
+    resetChip.style.display = hasFilters ? 'inline-flex' : 'none';
 }
 
-// Setup dropdown de type
-function setupTypeDropdown() {
-    const typeBtn = document.getElementById('typeDropdownBtn');
-    const typeMenu = document.getElementById('typeDropdownMenu');
-    const typeOptions = typeMenu.querySelectorAll('.dropdown-option');
-    const selectedTypeSpan = document.getElementById('selectedType');
-    
-    // Toggle dropdown
-    typeBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        typeMenu.classList.toggle('show');
-        typeBtn.classList.toggle('active');
-        
-        // Fermer l'autre dropdown
-        document.getElementById('genreDropdownMenu').classList.remove('show');
-        document.getElementById('genreDropdownBtn').classList.remove('active');
-    });
-    
-    // Sélection d'un type
-    typeOptions.forEach(option => {
-        option.addEventListener('click', () => {
-            // Retirer active de tous
-            typeOptions.forEach(opt => opt.classList.remove('active'));
-            
-            // Ajouter active à l'option sélectionnée
-            option.classList.add('active');
-            
-            // Mettre à jour le type
-            currentType = option.dataset.type || '';
-            
-            // Mettre à jour le texte
-            const typeText = option.textContent.replace('✓ ', '');
-            selectedTypeSpan.textContent = typeText;
-            
-            // Fermer le dropdown
-            typeMenu.classList.remove('show');
-            typeBtn.classList.remove('active');
-            
-            // Relancer la recherche
+// Chips de type
+function setupTypeChips() {
+    const chips = document.querySelectorAll('#typeChips .chip');
+    chips.forEach(chip => {
+        chip.addEventListener('click', () => {
+            chips.forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            currentType = chip.dataset.type || '';
             currentPage = 1;
             fetchAnimes(currentPage, currentSearch, currentType, currentGenres);
+            updateResetVisibility();
         });
     });
 }
 
-// Setup dropdown de genres
-function setupGenreDropdown() {
-    const genreBtn = document.getElementById('genreDropdownBtn');
-    const genreMenu = document.getElementById('genreDropdownMenu');
-    const genreOptions = document.querySelectorAll('#genreOptions .dropdown-option');
-    const selectedGenresSpan = document.getElementById('selectedGenres');
-    const genreSearch = document.getElementById('genreSearch');
-    
-    // Toggle dropdown
-    genreBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        genreMenu.classList.toggle('show');
-        genreBtn.classList.toggle('active');
-        
-        // Fermer l'autre dropdown
-        document.getElementById('typeDropdownMenu').classList.remove('show');
-        document.getElementById('typeDropdownBtn').classList.remove('active');
-    });
-    
-    // Recherche de genres
-    genreSearch.addEventListener('input', (e) => {
-        const searchTerm = e.target.value.toLowerCase();
-        genreOptions.forEach(option => {
-            const genreName = option.dataset.genreName?.toLowerCase() || '';
-            if (genreName.includes(searchTerm) || option.textContent.toLowerCase().includes(searchTerm)) {
-                option.style.display = 'block';
-            } else {
-                option.style.display = 'none';
-            }
-        });
-    });
-    
-    // Sélection de genres (multi-sélection)
-    genreOptions.forEach(option => {
-        option.addEventListener('click', () => {
-            const genreId = option.dataset.genreId;
-            
-            if (genreId === '') {
-                // "Tous" cliqué - désélectionner tous les genres
-                genreOptions.forEach(opt => opt.classList.remove('active'));
-                option.classList.add('active');
-                currentGenres = [];
-                selectedGenresSpan.textContent = 'Tous';
-            } else {
-                // Désactiver "Tous"
-                genreOptions[0].classList.remove('active');
-                
-                // Toggle le genre
-                option.classList.toggle('active');
-                
+// Charger les genres depuis l'API → chips
+async function loadGenres() {
+    const genreChipsContainer = document.getElementById('genreChips');
+    try {
+        const response = await fetch(`${JIKAN_API_BASE}/genres/anime?filter=genres`);
+        const data = await response.json();
+
+        genreChipsContainer.innerHTML = '';
+
+        data.data.forEach(genre => {
+            const chip = document.createElement('button');
+            chip.className = 'chip';
+            chip.textContent = genre.name;
+            chip.dataset.genreId = genre.mal_id;
+            chip.addEventListener('click', () => {
+                chip.classList.toggle('active');
+                const genreId = String(genre.mal_id);
                 const index = currentGenres.indexOf(genreId);
                 if (index > -1) {
                     currentGenres.splice(index, 1);
                 } else {
                     currentGenres.push(genreId);
                 }
-                
-                // Mettre à jour le texte
-                if (currentGenres.length === 0) {
-                    genreOptions[0].classList.add('active');
-                    selectedGenresSpan.textContent = 'Tous';
-                } else if (currentGenres.length === 1) {
-                    selectedGenresSpan.textContent = option.textContent;
-                } else {
-                    selectedGenresSpan.textContent = `${currentGenres.length} sélectionnés`;
-                }
-            }
-            
-            // Relancer la recherche
-            currentPage = 1;
-            fetchAnimes(currentPage, currentSearch, currentType, currentGenres);
+                currentPage = 1;
+                fetchAnimes(currentPage, currentSearch, currentType, currentGenres);
+                updateResetVisibility();
+            });
+            genreChipsContainer.appendChild(chip);
         });
-    });
-}
 
-// Fermer les dropdowns en cliquant ailleurs
-document.addEventListener('click', () => {
-    document.querySelectorAll('.filter-dropdown-menu').forEach(menu => {
-        menu.classList.remove('show');
-    });
-    document.querySelectorAll('.filter-dropdown-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-});
+        // Chip de réinitialisation
+        resetChip = document.createElement('button');
+        resetChip.className = 'chip chip-reset';
+        resetChip.id = 'resetFiltersBtn';
+        resetChip.innerHTML = '✕ Réinitialiser';
+        resetChip.style.display = 'none';
+        resetChip.addEventListener('click', resetFilters);
+        genreChipsContainer.appendChild(resetChip);
+
+    } catch (error) {
+        console.error('Erreur lors du chargement des genres:', error);
+        genreChipsContainer.innerHTML = '<span class="t-eyebrow">Erreur de chargement des genres</span>';
+    }
+}
 
 // Réinitialiser les filtres
 function resetFilters() {
     currentType = '';
     currentGenres = [];
     currentSearch = '';
+    currentSort = '';
     currentPage = 1;
-    
-    // Réinitialiser les dropdowns
-    document.querySelectorAll('.dropdown-option').forEach((opt, index) => {
-        opt.classList.toggle('active', index === 0);
+
+    // Réinitialiser les chips de type
+    document.querySelectorAll('#typeChips .chip').forEach((chip, index) => {
+        chip.classList.toggle('active', index === 0);
     });
-    
-    document.getElementById('selectedType').textContent = 'Tous';
-    document.getElementById('selectedGenres').textContent = 'Tous';
-    document.getElementById('genreSearch').value = '';
-    
-    // Réafficher tous les genres
-    document.querySelectorAll('#genreOptions .dropdown-option').forEach(opt => {
-        opt.style.display = 'block';
+
+    // Réinitialiser les chips de genre
+    document.querySelectorAll('#genreChips .chip:not(.chip-reset)').forEach(chip => {
+        chip.classList.remove('active');
     });
-    
-    // Réinitialiser le champ de recherche
+
+    // Réinitialiser recherche + tri
     searchInput.value = '';
-    
+    sortSelect.value = '';
+
+    updateResetVisibility();
+
     // Recharger les animes
     fetchAnimes(currentPage, currentSearch, currentType, currentGenres);
 }
-
-// Bouton réinitialiser
-document.getElementById('resetFiltersBtn').addEventListener('click', resetFilters);
 
 // Effacer la recherche si le champ est vidé
 searchInput.addEventListener('input', (e) => {
     if (e.target.value === '' && currentSearch !== '') {
         currentSearch = '';
         fetchAnimes(1, currentSearch, currentType, currentGenres);
+        updateResetVisibility();
+    }
+});
+
+// Carte "À la une" → page dédiée
+document.getElementById('heroFeatureCard')?.addEventListener('click', () => {
+    if (featuredAnime) {
+        openAnimePage(featuredAnime.mal_id);
     }
 });
 
@@ -691,9 +577,8 @@ searchInput.addEventListener('input', (e) => {
 document.addEventListener('DOMContentLoaded', () => {
     fetchAnimes(1);
     loadGenres();
-    setupTypeDropdown();
+    setupTypeChips();
 });
 
 // Note: Respect de l'API Jikan - limite de 3 requêtes par seconde
 // En cas d'erreur 429 (Too Many Requests), implémenter un système de retry avec délai
-

@@ -1,0 +1,299 @@
+/* ============================================
+   FAVANIM — Page détails anime ("Dossier")
+   Les tokens partagés viennent de styles.css
+   ============================================ */
+
+.pd-wrap {
+  max-width: 1280px;
+  margin: 0 auto;
+  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  min-height: calc(100vh - 74px);
+}
+
+.dt-root {
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100%;
+  font-family: 'Inter', sans-serif;
+}
+
+/* ===== Topbar (fil d'ariane + retour) ===== */
+.dt-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 40px;
+  border-bottom: 1px solid var(--line);
+  gap: 16px;
+}
+.dt-topbar-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.dt-logo-mark {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px;
+  background: var(--accent); color: #0a0a0a;
+  flex-shrink: 0;
+}
+.dt-crumb {
+  font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.dt-crumb.accent {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+a.dt-crumb { text-decoration: none; }
+a.dt-crumb:hover { color: var(--text); }
+.dt-crumb-sep { color: var(--text-faint); }
+.dt-topbar-right { display: flex; align-items: center; gap: 18px; flex-shrink: 0; }
+.dt-back {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: transparent; border: 1px solid var(--line-strong);
+  color: var(--text); padding: 7px 14px; cursor: pointer;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+  transition: all .15s;
+}
+.dt-back:hover { background: var(--text); color: var(--bg); }
+
+/* ===== Poster ===== */
+.dt-poster {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+}
+.dt-poster img {
+  position: relative; z-index: 1;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.dt-poster-fallback {
+  position: absolute; inset: 0; z-index: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 40px; color: var(--text-faint);
+  font-family: 'Noto Serif JP', serif; font-weight: 900;
+  text-align: center; padding: 20px;
+}
+
+/* ===== Étoiles / sections / actions ===== */
+.dt-stars { display: inline-flex; gap: 3px; }
+.dt-star { color: var(--line-strong); display: inline-flex; }
+.dt-star.on { color: var(--accent); }
+
+.dt-section { margin-bottom: 36px; }
+.dt-section .t-eyebrow { margin-bottom: 14px; }
+.dt-synopsis {
+  font-size: 16px; line-height: 1.65; color: var(--text);
+  max-width: 62ch; margin-bottom: 16px;
+  white-space: pre-line;
+}
+.dt-synopsis.dim { color: var(--text-dim); font-size: 15px; }
+
+.dt-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.dt-genres { display: flex; flex-wrap: wrap; gap: 6px; margin: 22px 0; }
+
+.dt-rows { display: flex; flex-direction: column; }
+.dt-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 16px;
+  padding: 12px 0; border-bottom: 1px solid var(--line);
+}
+.dt-row dt {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+.dt-row dd { font-size: 14px; font-weight: 600; color: var(--text); text-align: right; }
+
+/* ===== Œuvres liées (recommandations / même auteur) ===== */
+.dt-related { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.dt-related-item { cursor: pointer; text-decoration: none; display: block; }
+.dt-related-poster {
+  aspect-ratio: 2/3; overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  position: relative;
+}
+.dt-related-poster img { width: 100%; height: 100%; object-fit: cover; transition: transform .35s ease; }
+.dt-related-item:hover .dt-related-poster img { transform: scale(1.05); }
+.dt-related-item:hover .dt-related-title { color: var(--accent); }
+.dt-related-title { margin-top: 8px; font-size: 12px; font-weight: 600; color: var(--text-dim); }
+.dt-related-type {
+  position: absolute;
+  top: 8px; left: 8px;
+  z-index: 2;
+}
+
+/* ===== Personnages ===== */
+.dt-chars {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+}
+.dt-char { display: flex; flex-direction: column; }
+.dt-char-portrait {
+  aspect-ratio: 2/3;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.dt-char-portrait img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  transition: transform .35s ease;
+}
+.dt-char:hover .dt-char-portrait img { transform: scale(1.05); }
+.dt-char-name {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.2;
+}
+.dt-char-role {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-top: 4px;
+}
+.dt-char-role.main { color: var(--accent); }
+.dt-char-va {
+  font-size: 10px;
+  color: var(--text-faint);
+  margin-top: 2px;
+}
+
+/* ===== Auteur ===== */
+.dt-author {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  padding: 20px;
+  margin-bottom: 24px;
+}
+.dt-author-photo {
+  width: 88px;
+  height: 110px;
+  object-fit: cover;
+  border: 1px solid var(--line-strong);
+  flex-shrink: 0;
+  background: var(--surface-hi);
+}
+.dt-author-name {
+  font-family: 'Anton', sans-serif;
+  font-size: 28px;
+  text-transform: uppercase;
+  line-height: 1;
+  color: var(--text);
+}
+.dt-author-role {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-top: 8px;
+}
+.dt-author-works-label { margin: 0 0 14px; }
+
+/* ===== Relations / musiques (colonne latérale) ===== */
+.dt-side-section { margin-top: 28px; }
+.dt-side-section .t-eyebrow { margin-bottom: 12px; }
+.dt-rel-row {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.dt-rel-kind {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  display: block;
+  margin-bottom: 3px;
+}
+.dt-rel-row a, .dt-rel-row span.dt-rel-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  text-decoration: none;
+}
+.dt-rel-row a:hover { color: var(--accent); }
+
+.dt-theme-row {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-dim);
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.dt-theme-row strong { color: var(--accent); font-weight: 500; }
+
+/* ===== Bande-annonce ===== */
+.dt-trailer iframe {
+  width: 100%;
+  aspect-ratio: 16/9;
+  border: 1px solid var(--line-strong);
+  display: block;
+}
+
+/* ===========================================================================
+   Disposition A — "Dossier"
+   =========================================================================== */
+.dtA-grid {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 56px;
+  padding: 48px 40px 64px;
+}
+.dtA-side { display: flex; flex-direction: column; }
+.dtA-side .dt-poster { margin-bottom: 24px; }
+.dtA-score {
+  display: flex; align-items: center; gap: 16px;
+  padding: 18px 0; border-top: 1px solid var(--line-strong);
+  border-bottom: 1px solid var(--line-strong); margin-bottom: 24px;
+}
+.dtA-score-num { font-size: 52px; color: var(--accent); line-height: 1; }
+.dtA-score-meta { display: flex; flex-direction: column; gap: 6px; }
+.dtA-score-meta .t-mono { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-dim); }
+
+.dtA-main { padding-top: 4px; min-width: 0; }
+.dtA-title { font-size: clamp(52px, 6.5vw, 100px); line-height: 0.92; color: var(--text); overflow-wrap: anywhere; }
+.dtA-jp { font-size: 20px; color: var(--text-dim); margin-top: 30px; }
+.dtA-main .dt-genres { margin: 24px 0; }
+.dtA-rule { margin: 32px 0; }
+.dtA-foot { margin-top: 8px; }
+
+/* ===== Responsive ===== */
+@media (max-width: 1024px) {
+  .dt-chars { grid-template-columns: repeat(4, 1fr); }
+}
+@media (max-width: 900px) {
+  .dtA-grid {
+    grid-template-columns: 1fr;
+    gap: 36px;
+    padding: 24px 16px 48px;
+  }
+  .dtA-side { max-width: 360px; }
+  .dt-topbar { padding: 14px 16px; }
+  .dt-related { grid-template-columns: repeat(2, 1fr); }
+  .dt-chars { grid-template-columns: repeat(3, 1fr); }
+  .dtA-jp { margin-top: 18px; }
+}
+@media (max-width: 520px) {
+  .dt-chars { grid-template-columns: repeat(2, 1fr); }
+  .dt-author { flex-direction: column; align-items: flex-start; }
+}

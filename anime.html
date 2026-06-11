@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fiche anime — Favanim</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@700&display=swap" rel="stylesheet">
+    <script src="theme.js?v=36"></script>
+    <link rel="stylesheet" href="styles.css?v=36">
+    <link rel="stylesheet" href="anime.css?v=36">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="nav-root">
+        <div class="nav-inner">
+            <a class="nav-logo" href="index.html">
+                <span class="nav-logo-mark">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                        <path d="M3 5h18M2 8h20M5 5v15M19 5v15M8 11h8"/>
+                    </svg>
+                </span>
+                <span class="nav-logo-text">
+                    <span class="nav-logo-word">Favanim</span>
+                    <span class="nav-logo-jp">ファブアニム</span>
+                </span>
+            </a>
+
+            <div class="nav-links">
+                <a class="nav-link" href="index.html">Catalogue</a>
+                <a class="nav-link" href="favorites.html">Favoris</a>
+                <a class="nav-link" href="quick-rate.html">Quick Rate</a>
+            </div>
+
+            <div class="nav-actions">
+                <button class="nav-icon-btn" id="themeToggle" aria-label="Thème"></button>
+                <a class="nav-icon-btn" href="favorites.html" aria-label="Favoris">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-4.35-9.5-9C1 8.5 3 5 6.5 5c2 0 3.5 1 5.5 3 2-2 3.5-3 5.5-3C21 5 23 8.5 21.5 12 19 16.65 12 21 12 21z"/></svg>
+                    <span id="favCount" class="nav-badge" style="display: none;">0</span>
+                </a>
+                <button id="authBtn"><span class="nav-user-pseudo">Se connecter</span></button>
+            </div>
+        </div>
+        <div class="divider"></div>
+    </nav>
+
+    <div class="pd-wrap">
+        <div class="dt-root dtA">
+            <!-- Fil d'ariane -->
+            <div class="dt-topbar">
+                <div class="dt-topbar-left">
+                    <span class="dt-logo-mark">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 5h18M2 8h20M5 5v15M19 5v15M8 11h8"/></svg>
+                    </span>
+                    <a class="dt-crumb t-mono" href="index.html">Catalogue</a>
+                    <span class="dt-crumb-sep">/</span>
+                    <span class="dt-crumb t-mono accent" id="crumbTitle">…</span>
+                </div>
+                <div class="dt-topbar-right">
+                    <button class="dt-back t-mono" id="backBtn">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 5l-7 7 7 7"/></svg>
+                        Retour
+                    </button>
+                </div>
+            </div>
+
+            <!-- Loading -->
+            <div id="detailLoading" class="loading">
+                <div class="spinner"></div>
+                <p>Chargement de la fiche…</p>
+            </div>
+
+            <!-- Erreur -->
+            <div id="detailError" class="error-message" style="display: none; margin: 32px 40px;">
+                <p>Impossible de charger cette fiche. Veuillez réessayer.</p>
+            </div>
+
+            <!-- Fiche -->
+            <div class="dtA-grid" id="detailGrid" style="display: none;">
+                <aside class="dtA-side">
+                    <div class="dt-poster">
+                        <div class="dt-poster-fallback t-display" id="posterFallback"></div>
+                        <img id="posterImg" alt="" style="display: none;" onerror="this.style.display='none'">
+                    </div>
+                    <div class="dtA-score">
+                        <div class="dtA-score-num t-display" id="scoreNum">—</div>
+                        <div class="dtA-score-meta">
+                            <span class="dt-stars" id="scoreStars"></span>
+                            <span class="t-mono" id="scoreVotes">—</span>
+                        </div>
+                    </div>
+                    <dl class="dt-rows" id="infoRows"></dl>
+
+                    <div class="dt-side-section" id="relationsSection" style="display: none;">
+                        <div class="t-eyebrow">— Relations</div>
+                        <div id="relationsList"></div>
+                    </div>
+
+                    <div class="dt-side-section" id="themesSection" style="display: none;">
+                        <div class="t-eyebrow">— Musiques</div>
+                        <div id="themesList"></div>
+                    </div>
+                </aside>
+
+                <main class="dtA-main">
+                    <div class="t-eyebrow" id="detailEyebrow">— Fiche</div>
+                    <h1 class="dtA-title t-display" id="detailTitle">—</h1>
+                    <div class="dtA-jp t-jp" id="detailJp"></div>
+                    <div class="dt-genres" id="genreTape"></div>
+                    <div class="dt-actions">
+                        <button class="btn btn-primary" id="favBtn">♡ Ajouter aux favoris</button>
+                        <button class="btn" id="trailerBtn" style="display: none;">► Trailer</button>
+                        <button class="btn btn-ghost" id="rateBtn">☆ Noter</button>
+                    </div>
+                    <div class="divider-strong divider dtA-rule"></div>
+
+                    <div class="dt-section">
+                        <div class="t-eyebrow">— Synopsis</div>
+                        <p class="dt-synopsis" id="synopsis">…</p>
+                        <p class="dt-synopsis dim" id="synopsisBackground" style="display: none;"></p>
+                    </div>
+
+                    <div class="dt-section" id="charactersSection" style="display: none;">
+                        <div class="t-eyebrow">— Personnages</div>
+                        <div class="dt-chars" id="charactersGrid"></div>
+                    </div>
+
+                    <div class="dt-section" id="authorSection" style="display: none;">
+                        <div class="t-eyebrow">— L'auteur</div>
+                        <div class="dt-author">
+                            <img class="dt-author-photo" id="authorPhoto" alt="" style="display: none;" onerror="this.style.display='none'">
+                            <div>
+                                <div class="dt-author-name" id="authorName">—</div>
+                                <div class="dt-author-role" id="authorRole"></div>
+                            </div>
+                        </div>
+                        <div id="authorWorksWrap" style="display: none;">
+                            <div class="t-eyebrow dt-author-works-label">— Du même auteur</div>
+                            <div class="dt-related" id="authorWorks"></div>
+                        </div>
+                    </div>
+
+                    <div class="dt-section dt-trailer" id="trailerSection" style="display: none;">
+                        <div class="t-eyebrow">— Bande-annonce</div>
+                        <div id="trailerEmbed"></div>
+                    </div>
+
+                    <div class="dt-section dtA-foot" id="recoSection" style="display: none;">
+                        <div class="t-eyebrow">— Dans la même veine</div>
+                        <div class="dt-related" id="recoGrid"></div>
+                    </div>
+                </main>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Login/Register -->
+    <div id="authModal" class="modal">
+        <div class="modal-box auth-box">
+            <span class="close">&times;</span>
+            <div class="auth-panel-tabs">
+                <button type="button" class="auth-tab active" id="showLogin">
+                    <span class="auth-tab-num">01</span>
+                    <span>Connexion</span>
+                </button>
+                <button type="button" class="auth-tab" id="showRegister">
+                    <span class="auth-tab-num">02</span>
+                    <span>Inscription</span>
+                </button>
+            </div>
+
+            <!-- Login Form -->
+            <div id="loginForm" class="auth-form active">
+                <form id="loginFormElement">
+                    <label class="auth-field">
+                        <span class="auth-label">Email</span>
+                        <input class="input" type="email" id="loginEmail" required placeholder="toi@email.com">
+                    </label>
+                    <label class="auth-field">
+                        <span class="auth-label">Mot de passe</span>
+                        <input class="input" type="password" id="loginPassword" required placeholder="••••••••">
+                    </label>
+                    <button type="submit" class="btn btn-primary auth-submit">Entrer →</button>
+                </form>
+            </div>
+
+            <!-- Register Form -->
+            <div id="registerForm" class="auth-form">
+                <form id="registerFormElement">
+                    <label class="auth-field">
+                        <span class="auth-label">Pseudo</span>
+                        <input class="input" type="text" id="registerUsername" required placeholder="@yumeno">
+                    </label>
+                    <label class="auth-field">
+                        <span class="auth-label">Email</span>
+                        <input class="input" type="email" id="registerEmail" required placeholder="toi@email.com">
+                    </label>
+                    <label class="auth-field">
+                        <span class="auth-label">Mot de passe</span>
+                        <input class="input" type="password" id="registerPassword" required placeholder="••••••••">
+                    </label>
+                    <label class="auth-field">
+                        <span class="auth-label">Confirmer le mot de passe</span>
+                        <input class="input" type="password" id="registerPasswordConfirm" required placeholder="••••••••">
+                    </label>
+                    <button type="submit" class="btn btn-primary auth-submit">Créer mon compte →</button>
+                </form>
+            </div>
+
+            <div class="auth-panel-foot">
+                <span class="t-mono">№ 001/A</span>
+                <span class="t-mono">Authentifié · Firebase</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal note + commentaire -->
+    <div id="addToFavoritesModal" class="modal">
+        <div class="modal-box">
+            <span class="close">&times;</span>
+            <div class="modal-body">
+                <div class="t-eyebrow">— Ma collection</div>
+                <h2 class="modal-heading t-display" id="rateModalHeading">Ajouter aux favoris</h2>
+                <div id="addToFavoritesContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grain-overlay"></div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
+    <!-- Configuration et Scripts -->
+    <script src="firebase-config.js?v=36"></script>
+    <script src="auth-firebase.js?v=36"></script>
+    <script src="star-rating.js?v=36"></script>
+    <script src="anime.js?v=36"></script>
+</body>
+</html>

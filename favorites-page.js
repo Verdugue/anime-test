@@ -13,7 +13,7 @@ async function initFavoritesPage() {
     updateAuthButton();
     
     // Afficher un loading
-    favoritesContainer.innerHTML = '<div class="loading" style="grid-column: 1/-1;"><div class="spinner"></div><p>Chargement de vos favoris...</p></div>';
+    favoritesContainer.innerHTML = '<div class="loading" style="grid-column: 1/-1; background: var(--bg);"><div class="spinner"></div><p>Chargement de vos favoris…</p></div>';
     
     // Attendre que Firebase Auth soit prêt
     if (!authManager.auth) {
@@ -59,12 +59,27 @@ function updateUserGreeting() {
     }
 }
 
+// Mettre à jour les statistiques d'en-tête (nombre + note moyenne)
+function updateFavStats(favorites) {
+    const countEl = document.getElementById('favStatCount');
+    const avgEl = document.getElementById('favStatAvg');
+    if (countEl) countEl.textContent = favorites.length;
+    if (avgEl) {
+        const rated = favorites.filter(f => f.userRating > 0);
+        avgEl.textContent = rated.length
+            ? (rated.reduce((s, f) => s + f.userRating, 0) / rated.length).toFixed(1)
+            : '—';
+    }
+}
+
 // Afficher les favoris
 async function displayFavorites() {
     console.log('🔍 displayFavorites() appelée');
     const favorites = await authManager.getFavorites(true);
     console.log('📊 Favoris récupérés:', favorites.length, favorites);
-    
+
+    updateFavStats(favorites);
+
     if (favorites.length === 0) {
         console.log('⚠️ Aucun favori trouvé, affichage du message vide');
         favoritesContainer.style.display = 'none';
@@ -72,22 +87,22 @@ async function displayFavorites() {
         loginRequired.style.display = 'none';
         return;
     }
-    
+
     console.log('✅ Affichage de', favorites.length, 'favoris');
     favoritesContainer.style.display = 'grid';
     emptyFavorites.style.display = 'none';
     loginRequired.style.display = 'none';
-    
+
     // Trier par date d'ajout (plus récent en premier)
     const sortedFavorites = [...favorites].sort((a, b) => {
         return new Date(b.addedAt || 0) - new Date(a.addedAt || 0);
     });
-    
-    favoritesContainer.innerHTML = sortedFavorites.map(fav => createFavoriteCard(fav)).join('');
+
+    favoritesContainer.innerHTML = sortedFavorites.map((fav, idx) => createFavoriteCard(fav, idx)).join('');
 }
 
-// Créer une carte de favori
-function createFavoriteCard(favorite) {
+// Créer une carte de favori (style éditorial)
+function createFavoriteCard(favorite, idx = 0) {
     const imageUrl = favorite.images?.jpg?.large_image_url || favorite.images?.jpg?.image_url || '';
     const title = favorite.title || 'Sans titre';
     const rating = favorite.userRating || 0;
@@ -97,54 +112,53 @@ function createFavoriteCard(favorite) {
         month: 'long',
         year: 'numeric'
     }) : '';
-    
-    const score = favorite.score || 'N/A';
+
+    const score = favorite.score != null ? favorite.score : 'N/A';
     const type = favorite.type || 'TV';
-    const episodes = favorite.episodes ? `${favorite.episodes} ep` : 'En cours';
-    
+    const episodes = favorite.episodes ? `${favorite.episodes} ép.` : 'En cours';
+    const num = String(idx + 1).padStart(3, '0');
+
     return `
-        <div class="favorite-item" data-anime-id="${favorite.mal_id}">
-            <img src="${imageUrl}" 
-                 alt="${title}" 
-                 class="favorite-item-image"
-                 onerror="this.src='https://via.placeholder.com/200x280?text=No+Image'">
-            
-            <div class="favorite-item-content">
-                <h3 class="favorite-item-title">${title}</h3>
-                
-                <div class="favorite-item-meta">
-                    <span class="meta-tag">📺 ${type}</span>
-                    <span class="meta-tag">🎬 ${episodes}</span>
-                    <span class="meta-tag">⭐ Score MAL: ${score}</span>
+        <article class="card fav-card" data-anime-id="${favorite.mal_id}"
+                 onclick="window.location.href='anime.html?id=${favorite.mal_id}'" style="cursor: pointer;">
+            <div class="card-media">
+                <img src="${imageUrl}" alt="${title}" loading="lazy"
+                     onerror="this.style.display='none'">
+                <div class="card-num t-mono">№ ${num}</div>
+            </div>
+            <div class="card-body">
+                <div class="card-meta-row">
+                    <span class="tag accent">${type}</span>
+                    <span class="card-score">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3 7 7.5.5-5.7 5 1.7 7.5L12 18l-6.5 4 1.7-7.5L1.5 9.5 9 9z"/></svg>
+                        <span>${score}</span>
+                    </span>
                 </div>
-                
-                <div class="favorite-item-rating">
-                    <strong style="color: var(--text-secondary);">Ma note:</strong>
+                <h3 class="card-title">${title}</h3>
+                <div class="card-year t-mono">${episodes}</div>
+
+                <div class="fav-rating">
+                    <span class="t-eyebrow">Ma note</span>
                     <div class="star-display">
                         ${generateStarDisplay(rating)}
                     </div>
-                    <span class="rating-number">${rating}/5</span>
+                    <span class="fav-rating-num">${rating}/5</span>
                 </div>
-                
-                ${comment ? `
-                    <div class="favorite-item-comment">
-                        <strong style="color: var(--text-primary); display: block; margin-bottom: 0.5rem;">💬 Mon avis:</strong>
-                        ${comment}
-                    </div>
-                ` : ''}
-                
-                ${addedDate ? `<div class="favorite-item-date">Ajouté le ${addedDate}</div>` : ''}
+
+                ${comment ? `<div class="fav-comment">« ${comment} »</div>` : ''}
+
+                ${addedDate ? `<div class="fav-date">Ajouté le ${addedDate}</div>` : ''}
+
+                <div class="fav-actions">
+                    <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation(); editFavorite(${favorite.mal_id})">
+                        Modifier
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); removeFavoriteFromPage(${favorite.mal_id})">
+                        Retirer
+                    </button>
+                </div>
             </div>
-            
-            <div class="favorite-item-actions">
-                <button class="action-btn" onclick="editFavorite(${favorite.mal_id})">
-                    ✏️ Modifier
-                </button>
-                <button class="action-btn delete" onclick="removeFavoriteFromPage(${favorite.mal_id})">
-                    🗑️ Retirer
-                </button>
-            </div>
-        </div>
+        </article>
     `;
 }
 
@@ -179,25 +193,30 @@ async function editFavorite(animeId) {
     const currentComment = favorite.userComment || '';
     
     const modalContent = document.getElementById('editFavoriteContent');
+    const editImageUrl = favorite.images?.jpg?.large_image_url || favorite.images?.jpg?.image_url || '';
     modalContent.innerHTML = `
-        <div class="edit-favorite-form">
-            <h3 style="color: var(--text-primary); margin-bottom: 1rem;">${favorite.title}</h3>
-            
-            <div class="star-rating-input">
-                <label>Ma note:</label>
-                <div class="stars-input" id="starsInputEdit"></div>
-                <div style="color: var(--text-secondary); margin-top: 0.5rem;">
-                    Note sélectionnée: <span id="selectedRating">${currentRating}</span>/5
+        <div class="rate-form">
+            <div class="rate-form-anime">
+                ${editImageUrl ? `<img src="${editImageUrl}" alt="${favorite.title}">` : ''}
+                <div>
+                    <div class="rate-form-anime-title">${favorite.title}</div>
+                    <div class="rate-form-anime-sub">${favorite.type || 'TV'} · ${favorite.episodes || '?'} épisodes</div>
                 </div>
             </div>
-            
-            <div class="comment-input">
-                <label>Mon commentaire:</label>
-                <textarea id="commentTextarea" placeholder="Partagez votre avis sur cet anime...">${currentComment}</textarea>
+
+            <div>
+                <div class="t-eyebrow">Ma note *</div>
+                <div class="stars-input" id="starsInputEdit" style="margin-top: 10px;"></div>
+                <div class="rate-value t-mono">Note sélectionnée : <strong id="selectedRating">${currentRating}</strong>/5</div>
             </div>
-            
-            <button class="btn-primary" onclick="saveEditedFavorite(${animeId})">
-                💾 Enregistrer les modifications
+
+            <div>
+                <div class="t-eyebrow" style="margin-bottom: 8px;">Mon commentaire</div>
+                <textarea id="commentTextarea" class="input-area" placeholder="Partagez votre avis sur cet anime…">${currentComment}</textarea>
+            </div>
+
+            <button class="btn btn-primary" onclick="saveEditedFavorite(${animeId})">
+                Enregistrer les modifications →
             </button>
         </div>
     `;
