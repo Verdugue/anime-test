@@ -124,6 +124,10 @@ a.dt-crumb:hover { color: var(--text); }
 .dt-related-poster img { width: 100%; height: 100%; object-fit: cover; transition: transform .35s ease; }
 .dt-related-item:hover .dt-related-poster img { transform: scale(1.05); }
 .dt-related-item:hover .dt-related-title { color: var(--accent); }
+/* Œuvre sans fiche sur le site (manga non adapté) : carte non cliquable */
+.dt-related-item.is-static { cursor: default; }
+.dt-related-item.is-static:hover .dt-related-poster img { transform: none; }
+.dt-related-item.is-static:hover .dt-related-title { color: var(--text-dim); }
 .dt-related-title { margin-top: 8px; font-size: 12px; font-weight: 600; color: var(--text-dim); }
 .dt-related-type {
   position: absolute;

@@ -258,8 +258,8 @@ class AuthManager {
 
     // ===== Favoris =====
 
-    // Ajouter un anime aux favoris
-    async addFavorite(anime, rating = 0, comment = '') {
+    // Noter un anime. isFavorite=true → favori (cœur), false → simple note (quick-rate)
+    async addFavorite(anime, rating = 0, comment = '', isFavorite = true) {
         if (!this.isLoggedIn()) {
             throw new Error('Vous devez être connecté pour ajouter des favoris');
         }
@@ -275,7 +275,8 @@ class AuthManager {
                 episodes: anime.episodes || null,
                 score: anime.score || null,
                 user_rating: rating,
-                user_comment: comment
+                user_comment: comment,
+                is_favorite: isFavorite
             });
 
             if (error) throw error;
@@ -312,6 +313,23 @@ class AuthManager {
         }
     }
 
+    // Basculer le statut favori d'un anime déjà noté (la note est conservée)
+    async setFavoriteFlag(animeId, flag) {
+        if (!this.isLoggedIn()) {
+            throw new Error('Vous devez être connecté');
+        }
+
+        const { error } = await this.client
+            .from('favorites')
+            .update({ is_favorite: flag })
+            .eq('user_id', this.currentUser.uid)
+            .eq('anime_id', animeId);
+
+        if (error) throw new Error('Impossible de mettre à jour le favori');
+
+        this._favoritesCache = null;
+    }
+
     // Retirer un anime des favoris
     async removeFavorite(animeId) {
         if (!this.isLoggedIn()) {
@@ -342,7 +360,7 @@ class AuthManager {
 
         try {
             const favorites = await this.getFavorites();
-            return favorites.some(fav => fav.mal_id === animeId);
+            return favorites.some(fav => fav.mal_id === animeId && fav.isFavorite);
         } catch (error) {
             console.error('Erreur lors de la vérification:', error);
             return false;
@@ -387,6 +405,7 @@ class AuthManager {
                 score: row.score,
                 userRating: row.user_rating,
                 userComment: row.user_comment,
+                isFavorite: row.is_favorite !== false,
                 addedAt: row.added_at
             }));
 
@@ -400,7 +419,7 @@ class AuthManager {
         }
     }
 
-    // Obtenir le nombre de favoris
+    // Obtenir le nombre de favoris (les simples notes ne comptent pas)
     async getFavoritesCount() {
         if (!this.isLoggedIn()) {
             return 0;
@@ -408,7 +427,7 @@ class AuthManager {
 
         try {
             const favorites = await this.getFavorites();
-            return favorites.length;
+            return favorites.filter(fav => fav.isFavorite).length;
         } catch (error) {
             console.error('Erreur:', error);
             return 0;

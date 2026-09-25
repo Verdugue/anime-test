@@ -85,31 +85,32 @@ async function displayProfile() {
 
 // Charger les statistiques
 async function loadStats() {
-    const favorites = await authManager.getFavorites();
-    
-    // Nombre de favoris
+    const rated = await authManager.getFavorites();
+    const favorites = rated.filter(fav => fav.isFavorite);
+
+    // Nombre de favoris (les simples notes ne comptent pas)
     document.getElementById('statFavorites').textContent = favorites.length;
-    
-    if (favorites.length === 0) {
+
+    if (rated.length === 0) {
         document.getElementById('statAvgRating').textContent = '0.0';
         document.getElementById('statComments').textContent = '0';
         document.getElementById('statBestRated').textContent = '-';
         return;
     }
-    
-    // Note moyenne
-    const totalRating = favorites.reduce((sum, fav) => sum + (fav.userRating || 0), 0);
-    const avgRating = (totalRating / favorites.length).toFixed(1);
+
+    // Note moyenne (sur tous les animes notés)
+    const totalRating = rated.reduce((sum, fav) => sum + (fav.userRating || 0), 0);
+    const avgRating = (totalRating / rated.length).toFixed(1);
     document.getElementById('statAvgRating').textContent = avgRating;
-    
+
     // Nombre de commentaires
-    const commentsCount = favorites.filter(fav => fav.userComment && fav.userComment.trim() !== '').length;
+    const commentsCount = rated.filter(fav => fav.userComment && fav.userComment.trim() !== '').length;
     document.getElementById('statComments').textContent = commentsCount;
-    
+
     // Meilleur anime (le mieux noté)
-    const bestRated = favorites.reduce((best, fav) => {
+    const bestRated = rated.reduce((best, fav) => {
         return (fav.userRating || 0) > (best.userRating || 0) ? fav : best;
-    }, favorites[0]);
+    }, rated[0]);
     
     const bestTitle = bestRated.title || bestRated.title_english || 'Aucun';
     const statBestRated = document.getElementById('statBestRated');
@@ -133,7 +134,7 @@ function generateStars(rating) {
 
 // Charger les derniers favoris
 async function loadRecentFavorites() {
-    const favorites = await authManager.getFavorites();
+    const favorites = (await authManager.getFavorites()).filter(fav => fav.isFavorite);
     const recentList = document.getElementById('recentFavoritesList');
     
     if (favorites.length === 0) {

@@ -9,8 +9,8 @@
 // La clé "anon" est publique par conception : la sécurité est assurée
 // par les règles RLS (Row Level Security) définies dans supabase-setup.sql.
 
-const SUPABASE_URL = 'VOTRE_URL_SUPABASE';        // ex: https://abcdefgh.supabase.co
-const SUPABASE_ANON_KEY = 'VOTRE_CLE_ANON';       // ex: eyJhbGciOiJIUzI1NiIs...
+const SUPABASE_URL = 'https://tuxwabczczevyrhduhlo.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR1eHdhYmN6Y3pldnlyaGR1aGxvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyNDY5MDcsImV4cCI6MjA5NjgyMjkwN30.6Q7cDUznl5fEjSvIc_nuWLqv8SFLWUfzr2wBsP_sGiM';
 
 // Initialisation du client Supabase
 let supabaseClient = null;

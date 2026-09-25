@@ -7,6 +7,23 @@ const emptyFavorites = document.getElementById('emptyFavorites');
 const userGreeting = document.getElementById('userGreeting');
 const editFavoriteModal = document.getElementById('editFavoriteModal');
 
+// Onglets : 'favs' = favoris (cœur), 'notes' = tout ce qui a été noté
+let currentTab = 'favs';
+const tabFavs = document.getElementById('tabFavs');
+const tabNotes = document.getElementById('tabNotes');
+
+function switchTab(tab) {
+    currentTab = tab;
+    tabFavs.classList.toggle('active', tab === 'favs');
+    tabNotes.classList.toggle('active', tab === 'notes');
+    if (authManager.isLoggedIn()) {
+        displayFavorites();
+    }
+}
+
+if (tabFavs) tabFavs.addEventListener('click', () => switchTab('favs'));
+if (tabNotes) tabNotes.addEventListener('click', () => switchTab('notes'));
+
 // Initialiser la page - VERSION SIMPLIFIÉE ET FIABLE
 async function initFavoritesPage() {
     console.log('🚀 initFavoritesPage() appelée');
@@ -75,13 +92,19 @@ function updateFavStats(favorites) {
 // Afficher les favoris
 async function displayFavorites() {
     console.log('🔍 displayFavorites() appelée');
-    const favorites = await authManager.getFavorites(true);
+    const allRated = await authManager.getFavorites(true);
+    const favorites = currentTab === 'favs'
+        ? allRated.filter(f => f.isFavorite)
+        : allRated;
     console.log('📊 Favoris récupérés:', favorites.length, favorites);
 
     updateFavStats(favorites);
 
     if (favorites.length === 0) {
         console.log('⚠️ Aucun favori trouvé, affichage du message vide');
+        emptyFavorites.querySelector('p').textContent = currentTab === 'favs'
+            ? 'Aucun favori pour le moment.'
+            : 'Aucune note pour le moment.';
         favoritesContainer.style.display = 'none';
         emptyFavorites.style.display = 'block';
         loginRequired.style.display = 'none';
@@ -120,7 +143,7 @@ function createFavoriteCard(favorite, idx = 0) {
 
     return `
         <article class="card fav-card" data-anime-id="${favorite.mal_id}"
-                 onclick="window.location.href='anime.html?id=${favorite.mal_id}'" style="cursor: pointer;">
+                 onclick="sessionStorage.setItem('lastAnimeId','${favorite.mal_id}');window.location.href='anime.html?id=${favorite.mal_id}'" style="cursor: pointer;">
             <div class="card-media">
                 <img src="${imageUrl}" alt="${title}" loading="lazy"
                      onerror="this.style.display='none'">

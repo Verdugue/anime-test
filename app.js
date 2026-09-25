@@ -74,9 +74,15 @@ async function fetchAnimes(page = 1, searchQuery = '', type = '', genres = []) {
             url = `${JIKAN_API_BASE}/top/anime?${params.toString()}`;
         }
 
-        const response = await fetch(url);
+        let response = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+            response = await fetch(url);
+            if (response.status !== 429) break;
+            // Limite de l'API Jikan atteinte : attendre avant de réessayer
+            await new Promise(resolve => setTimeout(resolve, 2000));
+        }
 
-        if (!response.ok) {
+        if (!response || !response.ok) {
             throw new Error('Erreur lors de la récupération des données');
         }
 
@@ -114,6 +120,8 @@ async function fetchAnimes(page = 1, searchQuery = '', type = '', genres = []) {
 
 // Ouvrir la page dédiée d'un anime
 function openAnimePage(animeId) {
+    // Filet de sécurité si une redirection en cache perd le paramètre ?id
+    sessionStorage.setItem('lastAnimeId', String(animeId));
     window.location.href = `anime.html?id=${animeId}`;
 }
 
@@ -205,10 +213,11 @@ function createAnimeCard(anime, idx) {
 // Afficher les animes dans la grille
 async function displayAnimes(animes) {
     // Filtrer les animes déjà en favoris si l'utilisateur est connecté
+    // (les animes simplement notés restent visibles : on peut encore les mettre en favori)
     let filteredAnimes = animes;
     if (authManager.isLoggedIn()) {
         const favorites = await authManager.getFavorites();
-        const favoriteIds = favorites.map(fav => fav.mal_id);
+        const favoriteIds = favorites.filter(fav => fav.isFavorite).map(fav => fav.mal_id);
         filteredAnimes = animes.filter(anime => !favoriteIds.includes(anime.mal_id));
     }
 
@@ -486,8 +495,19 @@ function setupTypeChips() {
 async function loadGenres() {
     const genreChipsContainer = document.getElementById('genreChips');
     try {
-        const response = await fetch(`${JIKAN_API_BASE}/genres/anime?filter=genres`);
-        const data = await response.json();
+        let data = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+            const response = await fetch(`${JIKAN_API_BASE}/genres/anime?filter=genres`);
+            if (response.status === 429) {
+                // Limite de l'API Jikan atteinte : attendre avant de réessayer
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                continue;
+            }
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            data = await response.json();
+            break;
+        }
+        if (!data) throw new Error('API saturée, réessayez');
 
         genreChipsContainer.innerHTML = '';
 

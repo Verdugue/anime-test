@@ -1,9 +1,16 @@
 // ===== Page détails anime — Favanim =====
 const JIKAN_API_BASE = 'https://api.jikan.moe/v4';
 
-const animeId = parseInt(new URLSearchParams(window.location.search).get('id'), 10);
+// Id depuis l'URL, sinon depuis sessionStorage (filet de sécurité : certains
+// navigateurs gardent en cache une ancienne redirection qui perd le ?id)
+let animeId = parseInt(new URLSearchParams(window.location.search).get('id'), 10);
+if (!animeId) {
+    animeId = parseInt(sessionStorage.getItem('lastAnimeId'), 10);
+}
 if (!animeId) {
     window.location.replace('index.html');
+} else {
+    sessionStorage.setItem('lastAnimeId', String(animeId));
 }
 
 let currentAnime = null;
@@ -273,47 +280,52 @@ async function loadAuthor() {
         const person = await jikanFetch(`/people/${entry.person.mal_id}/full`);
         const works = [];
         const seen = new Set();
-        const seenTitles = new Set([(currentAnime?.title || '').toLowerCase()]);
+        const normTitle = t => (t || '').toLowerCase().replace(/[^a-z0-9]+/gi, ' ').trim();
+        const seenTitles = new Set([normTitle(currentAnime?.title)]);
 
-        (person.manga || []).forEach(w => {
-            const m = w.manga;
-            if (!m || seen.has('m' + m.mal_id) || seenTitles.has(m.title.toLowerCase())) return;
-            seen.add('m' + m.mal_id);
-            seenTitles.add(m.title.toLowerCase());
-            works.push({
-                title: m.title,
-                img: imageOf(m),
-                type: 'Manga',
-                href: m.url,
-                external: true
-            });
-        });
-
+        // Animes d'abord : ils ont une fiche sur le site. Un manga portant le même
+        // titre que son adaptation est masqué au profit de la fiche anime.
         (person.anime || []).forEach(w => {
             const a = w.anime;
-            if (!a || a.mal_id === animeId || seen.has('a' + a.mal_id) || seenTitles.has(a.title.toLowerCase())) return;
+            if (!a || a.mal_id === animeId || seen.has('a' + a.mal_id) || seenTitles.has(normTitle(a.title))) return;
             if (!(w.position || '').includes('Original Creator')) return;
             seen.add('a' + a.mal_id);
-            seenTitles.add(a.title.toLowerCase());
+            seenTitles.add(normTitle(a.title));
             works.push({
                 title: a.title,
                 img: imageOf(a),
                 type: 'Anime',
-                href: `anime.html?id=${a.mal_id}`,
-                external: false
+                href: `anime.html?id=${a.mal_id}`
+            });
+        });
+
+        // Mangas sans adaptation : affichés à titre informatif, sans lien externe
+        (person.manga || []).forEach(w => {
+            const m = w.manga;
+            if (!m || seen.has('m' + m.mal_id) || seenTitles.has(normTitle(m.title))) return;
+            seen.add('m' + m.mal_id);
+            seenTitles.add(normTitle(m.title));
+            works.push({
+                title: m.title,
+                img: imageOf(m),
+                type: 'Manga',
+                href: null
             });
         });
 
         if (works.length > 0) {
-            document.getElementById('authorWorks').innerHTML = works.slice(0, 8).map(w => `
-                <a class="dt-related-item" href="${esc(w.href)}" ${w.external ? 'target="_blank" rel="noopener"' : ''}>
+            document.getElementById('authorWorks').innerHTML = works.slice(0, 8).map(w => {
+                const inner = `
                     <div class="dt-related-poster">
                         <span class="tag accent dt-related-type">${w.type}</span>
                         <img src="${esc(w.img)}" alt="${esc(w.title)}" loading="lazy" onerror="this.style.display='none'">
                     </div>
                     <div class="dt-related-title">${esc(w.title)}</div>
-                </a>
-            `).join('');
+                `;
+                return w.href
+                    ? `<a class="dt-related-item" href="${esc(w.href)}">${inner}</a>`
+                    : `<div class="dt-related-item is-static">${inner}</div>`;
+            }).join('');
             document.getElementById('authorWorksWrap').style.display = '';
         }
     } catch (error) {
@@ -373,33 +385,40 @@ function requireLogin() {
 favBtn.addEventListener('click', async () => {
     if (!authManager.isLoggedIn()) { requireLogin(); return; }
     if (currentIsFav) {
-        if (confirm('Voulez-vous retirer cet anime de vos favoris ?')) {
-            await authManager.removeFavorite(animeId);
+        if (confirm('Retirer cet anime de vos favoris ? (votre note est conservée)')) {
+            await authManager.setFavoriteFlag(animeId, false);
             setFavBtn(false);
             await updateFavoritesCount();
             showNotification('Retiré des favoris', 'info');
         }
     } else {
-        openRateModal('add');
+        const favorites = await authManager.getFavorites();
+        const fav = favorites.find(f => f.mal_id === animeId);
+        if (fav) {
+            // Déjà noté : on passe simplement en favori sans redemander la note
+            await authManager.setFavoriteFlag(animeId, true);
+            setFavBtn(true);
+            await updateFavoritesCount();
+            showNotification('Ajouté aux favoris ♥', 'success');
+        } else {
+            openRateModal('add');
+        }
     }
 });
 
 rateBtn.addEventListener('click', async () => {
     if (!authManager.isLoggedIn()) { requireLogin(); return; }
-    if (currentIsFav) {
-        const favorites = await authManager.getFavorites();
-        const fav = favorites.find(f => f.mal_id === animeId);
-        openRateModal('edit', fav);
-    } else {
-        openRateModal('add');
-    }
+    const favorites = await authManager.getFavorites();
+    const fav = favorites.find(f => f.mal_id === animeId);
+    openRateModal(fav ? 'edit' : 'rate', fav);
 });
 
 function openRateModal(mode, fav = null) {
     if (!currentAnime) return;
 
     const heading = document.getElementById('rateModalHeading');
-    heading.textContent = mode === 'edit' ? 'Modifier mon avis' : 'Ajouter aux favoris';
+    heading.textContent = mode === 'edit' ? 'Modifier mon avis'
+        : (mode === 'rate' ? 'Noter cet anime' : 'Ajouter aux favoris');
 
     const initialRating = fav?.userRating || 0;
     const initialComment = fav?.userComment || '';
@@ -426,7 +445,8 @@ function openRateModal(mode, fav = null) {
             </div>
 
             <button class="btn btn-primary" id="rateConfirmBtn">
-                ${mode === 'edit' ? 'Enregistrer les modifications →' : '♥ Ajouter à mes favoris'}
+                ${mode === 'edit' ? 'Enregistrer les modifications →'
+                    : (mode === 'rate' ? '⭐ Enregistrer ma note' : '♥ Ajouter à mes favoris')}
             </button>
         </div>
     `;
@@ -453,6 +473,9 @@ async function confirmRate(mode) {
         if (mode === 'edit') {
             await authManager.updateFavorite(animeId, selectedRatingValue, comment);
             showNotification('Avis mis à jour', 'success');
+        } else if (mode === 'rate') {
+            await authManager.addFavorite(currentAnime, selectedRatingValue, comment, false);
+            showNotification('Note enregistrée ⭐', 'success');
         } else {
             await authManager.addFavorite(currentAnime, selectedRatingValue, comment);
             setFavBtn(true);
@@ -466,6 +489,16 @@ async function confirmRate(mode) {
 }
 
 // ===== Navigation =====
+// Mémoriser l'id avant de naviguer vers une autre fiche (relations / auteur / recos),
+// pour survivre aux redirections en cache qui perdent le paramètre ?id
+document.addEventListener('click', (e) => {
+    const link = e.target.closest('a[href^="anime.html?id="]');
+    if (link) {
+        const id = new URL(link.href, window.location.href).searchParams.get('id');
+        if (id) sessionStorage.setItem('lastAnimeId', id);
+    }
+});
+
 document.getElementById('backBtn').addEventListener('click', () => {
     let sameOrigin = false;
     try {

@@ -60,6 +60,7 @@ create table if not exists public.favorites (
   score numeric,
   user_rating numeric not null default 0,
   user_comment text,
+  is_favorite boolean not null default true,   -- false = simple note (quick-rate), true = favori (cœur)
   added_at timestamptz not null default now(),
   primary key (user_id, anime_id)
 );

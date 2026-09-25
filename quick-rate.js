@@ -207,7 +207,7 @@ function skipAnime() {
     nextAnime();
 }
 
-// Valider la note → ajout aux favoris
+// Valider la note (simple note : l'anime n'est PAS ajouté aux favoris)
 async function validateRating() {
     if (isProcessing) return;
 
@@ -220,11 +220,10 @@ async function validateRating() {
     const comment = qrComment.value.trim();
 
     try {
-        await authManager.addFavorite(anime, currentRatingValue, comment);
+        await authManager.addFavorite(anime, currentRatingValue, comment, false);
 
         rateCount++;
-        await updateFavoritesCount();
-        showNotification('Ajouté aux favoris ♥', 'success');
+        showNotification('Note enregistrée ⭐', 'success');
 
         nextAnime();
     } catch (error) {
